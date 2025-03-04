@@ -26,14 +26,16 @@ export async function POST(request) {
     
     // Enviar datos a Google Sheets
     try {
-      // Usar múltiples nombres posibles para las variables de entorno
-      const sheetId = process.env.GOOGLE_SHEET_ID || process.env.GOOGLE_SHEETS_SHEET_ID;
-      const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
-      const privateKey = (process.env.GOOGLE_PRIVATE_KEY || process.env.GOOGLE_SHEETS_PRIVATE_KEY)?.replace(/\\n/g, '\n');
+      // Usar los nombres específicos de las variables de entorno
+      const sheetId = process.env.GOOGLE_SHEETS_SHEET_ID;
+      const clientEmail = process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
+      const privateKey = process.env.GOOGLE_SHEETS_PRIVATE_KEY?.replace(/\\n/g, '\n');
+      const sheetName = process.env.GOOGLE_SHEETS_TAB_NAME;
       
       console.log('Intentando conectar a Google Sheets con ID:', sheetId);
       console.log('Usando email de cliente:', clientEmail);
       console.log('Clave privada disponible:', privateKey ? 'Sí' : 'No');
+      console.log('Nombre de la hoja a usar:', sheetName || 'Primera hoja (default)');
       
       if (!sheetId || !clientEmail || !privateKey) {
         throw new Error('Faltan variables de entorno para Google Sheets');
@@ -49,8 +51,7 @@ export async function POST(request) {
       await doc.loadInfo();
       console.log('Conexión exitosa a Google Sheets');
       
-      // Intentar usar el primer sheet o el sheet con nombre específico
-      const sheetName = process.env.GOOGLE_SHEETS_TAB_NAME;
+      // Intentar usar el sheet con nombre específico o el primero
       let sheet;
       
       if (sheetName) {
