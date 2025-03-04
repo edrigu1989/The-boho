@@ -43,24 +43,30 @@ export default function Home() {
         body: JSON.stringify(formData),
       });
       
+      if (!response.ok) {
+        throw new Error(`Error en la respuesta del servidor: ${response.status}`);
+      }
+      
       const data = await response.json();
       console.log("Respuesta del servidor:", data);
       
       if (data.success) {
+        // Guardar los datos del formulario y la URL de redirección
         setFormResponses(formData);
-        // Guardar la URL de redirección para pasarla al componente ThankYouScreen
+        
         if (data.redirectUrl) {
           console.log("URL de redirección recibida:", data.redirectUrl);
           setRedirectUrl(data.redirectUrl);
         }
+        
+        // Mostrar pantalla de agradecimiento
         setShowThankYou(true);
       } else {
-        console.error("Error en la respuesta:", data.error || "Error desconocido");
-        alert("Hubo un error al enviar el formulario. Por favor, inténtalo de nuevo.");
+        throw new Error(data.message || "Error desconocido en el servidor");
       }
     } catch (error) {
       console.error("Error al enviar el formulario:", error);
-      alert("Hubo un error al enviar el formulario. Por favor, inténtalo de nuevo.");
+      alert(`Hubo un error al enviar el formulario: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
