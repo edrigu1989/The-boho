@@ -1,5 +1,6 @@
 // Endpoint para enviar datos a Google Sheets y manejar la redirección
 import { GoogleSpreadsheet } from 'google-spreadsheet';
+import { JWT } from 'google-auth-library';
 
 export async function POST(request) {
   try {
@@ -41,15 +42,22 @@ export async function POST(request) {
         throw new Error('Faltan variables de entorno para Google Sheets');
       }
       
-      const doc = new GoogleSpreadsheet(sheetId);
-      
-      await doc.useServiceAccountAuth({
-        client_email: clientEmail,
-        private_key: privateKey,
+      // Crear un JWT para la autenticación (requerido en la versión 4.x)
+      const serviceAccountAuth = new JWT({
+        email: clientEmail,
+        key: privateKey,
+        scopes: [
+          'https://www.googleapis.com/auth/spreadsheets',
+        ],
       });
       
+      // Crear una instancia de GoogleSpreadsheet
+      const doc = new GoogleSpreadsheet(sheetId, serviceAccountAuth);
+      
+      // Cargar la información del documento
       await doc.loadInfo();
       console.log('Conexión exitosa a Google Sheets');
+      console.log('Título del documento:', doc.title);
       
       // Intentar usar el sheet con nombre específico o el primero
       let sheet;
@@ -83,8 +91,7 @@ export async function POST(request) {
         budget: formData.budget?.label || '',
         loanStatus: formData.loanStatus?.label || '',
         propertyType: formData.propertyType?.label || '',
-        specificNeeds: formData.specificNeeds?.label || '',
-        workingWithAgent: formData.workingWithAgent?.label || '',
+        creditScore: formData.creditScore?.label || '',
         score: totalScore,
         classification: classification,
       };
