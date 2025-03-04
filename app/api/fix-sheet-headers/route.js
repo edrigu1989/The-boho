@@ -19,65 +19,82 @@ export async function GET(request) {
       throw new Error('Faltan variables de entorno para Google Sheets');
     }
     
-    // Procesar la clave privada
+    // Procesar la clave privada - VERSIÓN MEJORADA para mayor compatibilidad
     console.log('Procesando la clave privada...');
+    
+    // Eliminar comillas adicionales si existen
     if (PRIVATE_KEY.startsWith('"') && PRIVATE_KEY.endsWith('"')) {
       PRIVATE_KEY = PRIVATE_KEY.slice(1, -1);
     }
     
+    // Reemplazar secuencias de escape
     if (PRIVATE_KEY.includes('\\n')) {
       PRIVATE_KEY = PRIVATE_KEY.replace(/\\n/g, '\n');
     }
     
+    // Verificar si la clave tiene formato PEM correcto
+    if (!PRIVATE_KEY.includes('-----BEGIN PRIVATE KEY-----')) {
+      console.log('La clave privada no tiene el formato PEM correcto, intentando reformatear...');
+      PRIVATE_KEY = `-----BEGIN PRIVATE KEY-----\n${PRIVATE_KEY}\n-----END PRIVATE KEY-----`;
+    }
+    
     // 2. Crear JWT para autenticación
     console.log('Creando autenticación JWT...');
-    const auth = new google.auth.JWT(
-      CLIENT_EMAIL,
-      null,
-      PRIVATE_KEY,
-      ['https://www.googleapis.com/auth/spreadsheets']
-    );
-    
-    const sheets = google.sheets({ version: 'v4', auth });
-    
-    // 3. Definir los encabezados correctos
-    const correctHeaders = [
-      'Nombre',
-      'Email',
-      'Teléfono',
-      'Método de Contacto',
-      'Razón de Compra',
-      'Plazo de Compra', 
-      'Primera Vez',
-      'Presupuesto',
-      'Estado de Préstamo',
-      'Tipo de Propiedad',
-      'Puntaje de Crédito',
-      'Score',
-      'Clasificación',
-      'Fecha'
-    ];
-    
-    // 4. Actualizar los encabezados
-    console.log('Actualizando encabezados en Google Sheets...');
-    const updateResponse = await sheets.spreadsheets.values.update({
-      spreadsheetId: SHEET_ID,
-      range: 'A1:N1',
-      valueInputOption: 'RAW',
-      resource: {
-        values: [correctHeaders]
-      }
-    });
-    
-    console.log('Encabezados actualizados correctamente:', updateResponse.status);
-    
-    // 5. Devolver respuesta exitosa
-    return Response.json({
-      success: true,
-      message: 'Encabezados corregidos correctamente',
-      status: updateResponse.status
-    });
-    
+    try {
+      const auth = new google.auth.JWT(
+        CLIENT_EMAIL,
+        null,
+        PRIVATE_KEY,
+        ['https://www.googleapis.com/auth/spreadsheets']
+      );
+      
+      const sheets = google.sheets({ version: 'v4', auth });
+      
+      // 3. Definir los encabezados correctos
+      const correctHeaders = [
+        'Nombre',
+        'Email',
+        'Teléfono',
+        'Método de Contacto',
+        'Razón de Compra',
+        'Plazo de Compra', 
+        'Primera Vez',
+        'Presupuesto',
+        'Estado de Préstamo',
+        'Tipo de Propiedad',
+        'Puntaje de Crédito',
+        'Score',
+        'Clasificación',
+        'Fecha'
+      ];
+      
+      // 4. Actualizar los encabezados
+      console.log('Actualizando encabezados en Google Sheets...');
+      const updateResponse = await sheets.spreadsheets.values.update({
+        spreadsheetId: SHEET_ID,
+        range: 'A1:N1',
+        valueInputOption: 'RAW',
+        resource: {
+          values: [correctHeaders]
+        }
+      });
+      
+      console.log('Encabezados actualizados correctamente:', updateResponse.status);
+      
+      // 5. Devolver respuesta exitosa
+      return Response.json({
+        success: true,
+        message: 'Encabezados corregidos correctamente',
+        status: updateResponse.status
+      });
+    } catch (authError) {
+      console.error('Error al crear autenticación JWT:', authError.message);
+      return Response.json({
+        success: false,
+        error: 'Error en autenticación',
+        message: `Error al conectar con Google Sheets: ${authError.message}`
+      }, { status: 200 });
+    }
   } catch (error) {
     // Manejar errores
     console.error('Error al corregir encabezados:', error.message);
@@ -90,7 +107,7 @@ export async function GET(request) {
         message: error.message,
         details: error.stack,
       },
-      { status: 500 }
+      { status: 200 } // Cambiado a 200 para mejor manejo de errores en frontend
     );
   } finally {
     console.log('=== FIN DE CORRECCIÓN DE ENCABEZADOS ===');
