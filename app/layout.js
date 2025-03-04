@@ -5,7 +5,7 @@ const inter = Inter({ subsets: ['latin'] });
 
 export const metadata = {
   title: 'The Boho Form',
-  description: 'Formulario inmobiliario personalizado',
+  description: 'Real Estate Form for The Boho Condos',
 };
 
 export default function RootLayout({ children }) {
