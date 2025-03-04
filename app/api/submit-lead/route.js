@@ -5,6 +5,7 @@ import { JWT } from 'google-auth-library';
 export async function POST(request) {
   try {
     const formData = await request.json();
+    console.log('Datos recibidos del formulario:', formData);
     
     // Calcular puntuación total (como referencia del código original)
     let totalScore = 0;
@@ -13,6 +14,7 @@ export async function POST(request) {
         totalScore += field.points;
       }
     });
+    console.log('Puntuación total calculada:', totalScore);
     
     // Determinar clasificación
     let classification = '';
@@ -24,6 +26,7 @@ export async function POST(request) {
     } else {
       classification = 'Cold Lead';
     }
+    console.log('Clasificación determinada:', classification);
     
     // Enviar datos a Google Sheets
     try {
@@ -97,7 +100,7 @@ export async function POST(request) {
         'Timestamp': new Date().toISOString()
       };
       
-      console.log('Datos a enviar:', rowData);
+      console.log('Datos a enviar a Google Sheets:', rowData);
       
       // Añadir fila a Google Sheets
       const addedRow = await sheet.addRow(rowData);
@@ -105,6 +108,7 @@ export async function POST(request) {
       console.log('Datos guardados exitosamente en Google Sheets, fila:', addedRow._rowNumber);
     } catch (sheetError) {
       console.error('Error guardando en Google Sheets:', sheetError);
+      console.error('Detalles del error:', sheetError.stack);
       // No impedimos la redirección si hay un error con Google Sheets
       // Solo lo registramos para depuración
     }
@@ -131,6 +135,7 @@ export async function POST(request) {
     );
   } catch (error) {
     console.error('Error submitting form:', error);
+    console.error('Detalles del error:', error.stack);
     return new Response(
       JSON.stringify({
         success: false,

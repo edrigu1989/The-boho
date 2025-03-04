@@ -33,6 +33,8 @@ export default function Home() {
   const handleSubmitForm = async (formData) => {
     setIsLoading(true);
     try {
+      console.log('Enviando datos del formulario:', formData);
+      
       // Send data to our endpoint
       const response = await fetch('/api/submit-lead', {
         method: 'POST',
@@ -43,6 +45,7 @@ export default function Home() {
       });
 
       const data = await response.json();
+      console.log('Respuesta del servidor:', data);
       
       if (data.success) {
         // Show thank you screen and set redirect URL
