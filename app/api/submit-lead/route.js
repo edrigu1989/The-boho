@@ -156,7 +156,7 @@ export async function POST(request) {
       loanStatus,              // I - Estado del préstamo
       propertyType,            // J - Tipo de propiedad
       creditScore,             // K - Puntaje de crédito
-      normalizedScore,         // L - Score normalizado (como número)
+      normalizedScore.toString(), // L - Score normalizado
       classification,          // M - Clasificación
       timestamp                // N - Timestamp
     ];
