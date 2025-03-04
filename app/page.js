@@ -65,14 +65,17 @@ export default function Home() {
 
   const handleNextStep = (formData) => {
     // Update form responses
-    setFormResponses(prev => ({ ...prev, ...formData }));
+    const updatedResponses = { ...formResponses, ...formData };
+    setFormResponses(updatedResponses);
+    console.log('Paso actual:', formStep, 'Datos actualizados:', updatedResponses);
     
     if (formStep < 11) {
       setFormStep(prev => prev + 1);
       setFormProgress((formStep / 11) * 100);
     } else {
       // Submit form when last step is completed
-      handleSubmitForm(formResponses);
+      console.log('Enviando formulario completo en el último paso:', updatedResponses);
+      handleSubmitForm(updatedResponses);
     }
   };
 
@@ -140,7 +143,7 @@ export default function Home() {
                 {/* Progress bar */}
                 <div className="px-6 pt-4">
                   <div className="flex justify-between items-center text-sm text-gray-600 mb-2">
-                    <span>Question {formStep} of 12</span>
+                    <span>Question {formStep} of 11</span>
                     <span>{Math.round(formProgress)}% Complete</span>
                   </div>
                   <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
