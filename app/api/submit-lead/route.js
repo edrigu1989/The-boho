@@ -45,22 +45,21 @@ export async function POST(request) {
     console.log('Intentando conectar a Google Sheets con ID:', SHEET_ID);
     console.log('Usando email de cliente:', CLIENT_EMAIL);
     
-    // Verificar si tenemos la clave en formato base64 y decodificarla si es necesario
-    const PRIVATE_KEY_BASE64 = process.env.GOOGLE_SHEETS_PRIVATE_KEY_BASE64;
-    if (PRIVATE_KEY_BASE64) {
-      try {
-        // Decodificar la clave base64
-        PRIVATE_KEY = Buffer.from(PRIVATE_KEY_BASE64, 'base64').toString();
-        console.log('Usando clave privada en formato base64 decodificada');
-      } catch (error) {
-        console.error('Error al decodificar la clave privada base64:', error);
-      }
-    } else if (PRIVATE_KEY) {
-      // Si la clave tiene comillas al principio y al final, quitarlas
+    // Procesar la clave privada para manejar diferentes formatos
+    if (PRIVATE_KEY) {
+      // 1. Si tiene comillas al principio y al final, quitarlas
       if (PRIVATE_KEY.startsWith('"') && PRIVATE_KEY.endsWith('"')) {
         PRIVATE_KEY = PRIVATE_KEY.slice(1, -1);
       }
-      console.log('Clave privada disponible:', PRIVATE_KEY ? 'Sí' : 'No');
+      
+      // 2. Asegurarse de que los \n se conviertan en saltos de línea reales
+      if (PRIVATE_KEY.includes('\\n')) {
+        PRIVATE_KEY = PRIVATE_KEY.replace(/\\n/g, '\n');
+      }
+      
+      console.log('Clave privada procesada y disponible');
+    } else {
+      console.error('No se encontró la clave privada en las variables de entorno');
     }
     
     console.log('Nombre de la hoja a usar:', TAB_NAME);
@@ -119,10 +118,39 @@ export async function POST(request) {
       throw error;
     }
 
-    // Redirigir a la página de agradecimiento o devolver respuesta
-    return Response.json({ success: true, score: totalScore, classification });
+    // URL de redirección específica para The Boho
+    const redirectUrl = process.env.NEXT_PUBLIC_REDIRECT_URL || 'https://app.gohighlevel.com/v2/preview/vhVyjgV407B2HQnkNtHe?notrack=true';
+
+    // Retornar resultado y URL de redirección
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: 'Form submitted successfully',
+        redirectUrl: redirectUrl,
+        score: totalScore,
+        classification: classification,
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
   } catch (error) {
     console.error('Error en el procesamiento del formulario:', error);
-    return Response.json({ error: error.message }, { status: 500 });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Failed to submit form',
+        message: error.message,
+      }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
   }
 } 

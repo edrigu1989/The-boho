@@ -32,10 +32,9 @@ export default function Home() {
 
   const handleSubmitForm = async (formData) => {
     setIsLoading(true);
+    console.log("Enviando datos del formulario:", formData);
+    
     try {
-      console.log('Enviando datos del formulario:', formData);
-      
-      // Send data to our endpoint
       const response = await fetch('/api/submit-lead', {
         method: 'POST',
         headers: {
@@ -43,21 +42,29 @@ export default function Home() {
         },
         body: JSON.stringify(formData),
       });
-
+      
       const data = await response.json();
-      console.log('Respuesta del servidor:', data);
+      console.log("Respuesta del servidor:", data);
       
       if (data.success) {
-        // Show thank you screen and set redirect URL
+        setFormResponses(formData);
         setShowThankYou(true);
-        setRedirectUrl(data.redirectUrl);
+        
+        // Redirigir si hay una URL de redirección en la respuesta
+        if (data.redirectUrl) {
+          console.log("Redirigiendo a:", data.redirectUrl);
+          // Pequeño retraso para asegurar que el usuario vea el mensaje de agradecimiento
+          setTimeout(() => {
+            window.location.href = data.redirectUrl;
+          }, 1500);
+        }
       } else {
-        console.error('Error submitting form:', data.error);
-        alert('There was an error submitting the form. Please try again.');
+        console.error("Error en la respuesta:", data.error || "Error desconocido");
+        alert("Hubo un error al enviar el formulario. Por favor, inténtalo de nuevo.");
       }
     } catch (error) {
-      console.error('Error submitting form:', error);
-      alert('There was an error submitting the form. Please try again.');
+      console.error("Error al enviar el formulario:", error);
+      alert("Hubo un error al enviar el formulario. Por favor, inténtalo de nuevo.");
     } finally {
       setIsLoading(false);
     }
