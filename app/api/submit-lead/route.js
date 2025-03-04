@@ -78,28 +78,31 @@ export async function POST(request) {
       
       console.log('Usando hoja:', sheet.title);
       
-      // Preparar los datos para Google Sheets
+      // Preparar los datos para Google Sheets - usando los nombres exactos de las columnas
       const rowData = {
-        timestamp: new Date().toISOString(),
-        fullName: formData.fullName?.value || '',
-        email: formData.email?.value || '',
-        phone: formData.phone?.value || '',
-        contactMethod: formData.contactMethod?.label || '',
-        buyingReason: formData.buyingReason?.label || '',
-        timeline: formData.timeline?.label || '',
-        firstTimeBuyer: formData.firstTimeBuyer?.label || '',
-        budget: formData.budget?.label || '',
-        loanStatus: formData.loanStatus?.label || '',
-        propertyType: formData.propertyType?.label || '',
-        creditScore: formData.creditScore?.label || '',
-        score: totalScore,
-        classification: classification,
+        'Full name': formData.fullName?.value || '',
+        'Email': formData.email?.value || '',
+        'Phone': formData.phone?.value || '',
+        'Contact Method': formData.contactMethod?.label || '',
+        'primary reason for buying': formData.buyingReason?.label || '',
+        'purchase timeline': formData.timeline?.label || '',
+        'first-time buyer': formData.firstTimeBuyer?.label || '',
+        'budget range': formData.budget?.label || '',
+        'loan approval status': formData.loanStatus?.label || '',
+        'type of property': formData.propertyType?.label || '',
+        'credit score': formData.creditScore?.label || '',
+        // Podemos añadir campos adicionales si hay columnas para ellos
+        'Score': totalScore,
+        'Classification': classification,
+        'Timestamp': new Date().toISOString()
       };
       
-      // Añadir fila a Google Sheets
-      await sheet.addRow(rowData);
+      console.log('Datos a enviar:', rowData);
       
-      console.log('Datos guardados exitosamente en Google Sheets');
+      // Añadir fila a Google Sheets
+      const addedRow = await sheet.addRow(rowData);
+      
+      console.log('Datos guardados exitosamente en Google Sheets, fila:', addedRow._rowNumber);
     } catch (sheetError) {
       console.error('Error guardando en Google Sheets:', sheetError);
       // No impedimos la redirección si hay un error con Google Sheets
