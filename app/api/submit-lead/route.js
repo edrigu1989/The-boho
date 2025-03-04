@@ -151,7 +151,7 @@ export async function POST(request) {
         loanStatus,
         propertyType,
         creditScore,
-        normalizedScore,
+        Number(normalizedScore),
         classification,
         timestamp
       ]
