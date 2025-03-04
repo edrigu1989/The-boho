@@ -48,16 +48,12 @@ export default function Home() {
       
       if (data.success) {
         setFormResponses(formData);
-        setShowThankYou(true);
-        
-        // Redirigir si hay una URL de redirección en la respuesta
+        // Guardar la URL de redirección para pasarla al componente ThankYouScreen
         if (data.redirectUrl) {
-          console.log("Redirigiendo a:", data.redirectUrl);
-          // Pequeño retraso para asegurar que el usuario vea el mensaje de agradecimiento
-          setTimeout(() => {
-            window.location.href = data.redirectUrl;
-          }, 1500);
+          console.log("URL de redirección recibida:", data.redirectUrl);
+          setRedirectUrl(data.redirectUrl);
         }
+        setShowThankYou(true);
       } else {
         console.error("Error en la respuesta:", data.error || "Error desconocido");
         alert("Hubo un error al enviar el formulario. Por favor, inténtalo de nuevo.");

@@ -45,6 +45,19 @@ export async function POST(request) {
     console.log('Intentando conectar a Google Sheets con ID:', SHEET_ID);
     console.log('Usando email de cliente:', CLIENT_EMAIL);
     
+    // Verificar que tenemos todas las variables de entorno necesarias
+    if (!SHEET_ID) {
+      throw new Error('Falta la variable de entorno GOOGLE_SHEETS_SHEET_ID');
+    }
+    
+    if (!CLIENT_EMAIL) {
+      throw new Error('Falta la variable de entorno GOOGLE_SHEETS_CLIENT_EMAIL');
+    }
+    
+    if (!PRIVATE_KEY) {
+      throw new Error('Falta la variable de entorno GOOGLE_SHEETS_PRIVATE_KEY');
+    }
+    
     // Procesar la clave privada para manejar diferentes formatos
     if (PRIVATE_KEY) {
       // 1. Si tiene comillas al principio y al final, quitarlas
@@ -115,11 +128,12 @@ export async function POST(request) {
       console.log('Datos guardados exitosamente en Google Sheets, fila:', addedRow.rowIndex);
     } catch (error) {
       console.error('Error al añadir fila a Google Sheets:', error);
-      throw error;
+      throw new Error(`Error al guardar en Google Sheets: ${error.message}`);
     }
 
     // URL de redirección específica para The Boho
     const redirectUrl = process.env.NEXT_PUBLIC_REDIRECT_URL || 'https://app.gohighlevel.com/v2/preview/vhVyjgV407B2HQnkNtHe?notrack=true';
+    console.log('URL de redirección:', redirectUrl);
 
     // Retornar resultado y URL de redirección
     return new Response(
@@ -139,11 +153,13 @@ export async function POST(request) {
     );
   } catch (error) {
     console.error('Error en el procesamiento del formulario:', error);
+    console.error('Stack trace:', error.stack);
     return new Response(
       JSON.stringify({
         success: false,
         error: 'Failed to submit form',
         message: error.message,
+        details: error.stack,
       }),
       {
         status: 500,
