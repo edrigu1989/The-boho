@@ -7,160 +7,122 @@ export async function POST(request) {
     const formData = await request.json();
     console.log('Datos recibidos del formulario (raw):', JSON.stringify(formData));
     
-    // Verificar la estructura de los datos
+    // Analizar la estructura de formData para depuración
     console.log('Estructura de formData:');
-    Object.keys(formData).forEach(key => {
-      console.log(`- ${key}:`, typeof formData[key], formData[key] ? 'tiene valor' : 'null/undefined');
+    for (const key in formData) {
+      console.log(`- ${key}: ${typeof formData[key]} ${formData[key] ? 'tiene valor' : 'está vacío'}`);
       if (formData[key] && typeof formData[key] === 'object') {
-        console.log(`  - Propiedades de ${key}:`, Object.keys(formData[key]));
+        console.log(`  - Propiedades de ${key}: [ ${Object.keys(formData[key]).join("', '") } ]`);
       }
-    });
-    
-    // Calcular puntuación total (como referencia del código original)
+    }
+
+    // Calcular puntuación total
     let totalScore = 0;
-    Object.values(formData).forEach((field) => {
-      if (field && typeof field.points === 'number') {
-        totalScore += field.points;
+    for (const key in formData) {
+      if (formData[key] && formData[key].points) {
+        totalScore += formData[key].points;
       }
-    });
+    }
     console.log('Puntuación total calculada:', totalScore);
-    
-    // Determinar clasificación
+
+    // Determinar clasificación basada en puntuación
     let classification = '';
-    
-    if (totalScore >= 80) {
+    if (totalScore >= 100) {
       classification = 'Hot Lead';
-    } else if (totalScore >= 50) {
+    } else if (totalScore >= 70) {
       classification = 'Warm Lead';
     } else {
       classification = 'Cold Lead';
     }
     console.log('Clasificación determinada:', classification);
+
+    // Conectar a Google Sheets
+    const SHEET_ID = process.env.GOOGLE_SHEETS_SHEET_ID;
+    const CLIENT_EMAIL = process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
+    let PRIVATE_KEY = process.env.GOOGLE_SHEETS_PRIVATE_KEY;
+    const TAB_NAME = process.env.GOOGLE_SHEETS_TAB_NAME || 'Data';
     
-    // Enviar datos a Google Sheets
-    try {
-      // Usar los nombres específicos de las variables de entorno
-      const sheetId = process.env.GOOGLE_SHEETS_SHEET_ID;
-      const clientEmail = process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
-      const privateKey = process.env.GOOGLE_SHEETS_PRIVATE_KEY?.replace(/\\n/g, '\n');
-      const sheetName = process.env.GOOGLE_SHEETS_TAB_NAME;
-      
-      console.log('Intentando conectar a Google Sheets con ID:', sheetId);
-      console.log('Usando email de cliente:', clientEmail);
-      console.log('Clave privada disponible:', privateKey ? 'Sí' : 'No');
-      console.log('Nombre de la hoja a usar:', sheetName || 'Primera hoja (default)');
-      
-      if (!sheetId || !clientEmail || !privateKey) {
-        throw new Error('Faltan variables de entorno para Google Sheets');
+    console.log('Intentando conectar a Google Sheets con ID:', SHEET_ID);
+    console.log('Usando email de cliente:', CLIENT_EMAIL);
+    
+    // Verificar si tenemos la clave en formato base64 y decodificarla si es necesario
+    const PRIVATE_KEY_BASE64 = process.env.GOOGLE_SHEETS_PRIVATE_KEY_BASE64;
+    if (PRIVATE_KEY_BASE64) {
+      try {
+        // Decodificar la clave base64
+        PRIVATE_KEY = Buffer.from(PRIVATE_KEY_BASE64, 'base64').toString();
+        console.log('Usando clave privada en formato base64 decodificada');
+      } catch (error) {
+        console.error('Error al decodificar la clave privada base64:', error);
       }
-      
-      // Crear un JWT para la autenticación (requerido en la versión 4.x)
-      const serviceAccountAuth = new JWT({
-        email: clientEmail,
-        key: privateKey,
-        scopes: [
-          'https://www.googleapis.com/auth/spreadsheets',
-        ],
-      });
-      
-      // Crear una instancia de GoogleSpreadsheet
-      const doc = new GoogleSpreadsheet(sheetId, serviceAccountAuth);
-      
-      // Cargar la información del documento
-      await doc.loadInfo();
-      console.log('Conexión exitosa a Google Sheets');
-      console.log('Título del documento:', doc.title);
-      
-      // Intentar usar el sheet con nombre específico o el primero
-      let sheet;
-      
-      if (sheetName) {
-        sheet = doc.sheetsByTitle[sheetName];
-        if (!sheet) {
-          console.log(`No se encontró la hoja "${sheetName}", usando la primera hoja`);
-          sheet = doc.sheetsByIndex[0];
-        }
-      } else {
-        sheet = doc.sheetsByIndex[0];
+    } else if (PRIVATE_KEY) {
+      // Si la clave tiene comillas al principio y al final, quitarlas
+      if (PRIVATE_KEY.startsWith('"') && PRIVATE_KEY.endsWith('"')) {
+        PRIVATE_KEY = PRIVATE_KEY.slice(1, -1);
       }
-      
-      if (!sheet) {
-        throw new Error('No se pudo encontrar una hoja válida en el documento');
-      }
-      
-      console.log('Usando hoja:', sheet.title);
-      
-      // Cargar los encabezados para verificar
-      await sheet.loadHeaderRow();
-      console.log('Encabezados de la hoja:', sheet.headerValues);
-      
-      // Preparar los datos para Google Sheets - usando los nombres exactos de las columnas
-      const rowData = {
-        'Full name': formData.fullName?.value || '',
-        'Email': formData.email?.value || '',
-        'Phone': formData.phone?.value || '',
-        'Contact Method': formData.contactMethod?.label || '',
-        'primary reason for buying': formData.buyingReason?.label || '',
-        'purchase timeline': formData.timeline?.label || '',
-        'first-time buyer': formData.firstTimeBuyer?.label || '',
-        'budget range': formData.budget?.label || '',
-        'loan approval status': formData.loanStatus?.label || '',
-        'type of property': formData.propertyType?.label || '',
-        'credit score': formData.creditScore?.label || '',
-        // Podemos añadir campos adicionales si hay columnas para ellos
-        'Score': totalScore,
-        'Classification': classification,
-        'Timestamp': new Date().toISOString()
-      };
-      
-      console.log('Datos a enviar a Google Sheets:', rowData);
-      
-      // Añadir fila a Google Sheets
-      const addedRow = await sheet.addRow(rowData);
-      
-      console.log('Datos guardados exitosamente en Google Sheets, fila:', addedRow._rowNumber);
-    } catch (sheetError) {
-      console.error('Error guardando en Google Sheets:', sheetError);
-      console.error('Detalles del error:', sheetError.stack);
-      // No impedimos la redirección si hay un error con Google Sheets
-      // Solo lo registramos para depuración
+      console.log('Clave privada disponible:', PRIVATE_KEY ? 'Sí' : 'No');
     }
     
-    // URL de redirección específica para The Boho
-    const redirectUrl = process.env.NEXT_PUBLIC_REDIRECT_URL || 'https://app.gohighlevel.com/v2/preview/vhVyjgV407B2HQnkNtHe?notrack=true';
-    
-    // Retornar resultado y URL de redirección
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: 'Form submitted successfully',
-        redirectUrl: redirectUrl,
-        // Para propósitos de depuración:
-        score: totalScore,
-        classification: classification,
-      }),
-      {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    console.log('Nombre de la hoja a usar:', TAB_NAME);
+
+    // Crear JWT para autenticación
+    const serviceAccountAuth = new JWT({
+      email: CLIENT_EMAIL,
+      key: PRIVATE_KEY,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+
+    // Inicializar el documento
+    const doc = new GoogleSpreadsheet(SHEET_ID, serviceAccountAuth);
+    await doc.loadInfo();
+    console.log('Conexión exitosa a Google Sheets');
+    console.log('Título del documento:', doc.title);
+
+    // Obtener la hoja de cálculo
+    const sheet = doc.sheetsByTitle[TAB_NAME];
+    if (!sheet) {
+      throw new Error(`Hoja "${TAB_NAME}" no encontrada en el documento`);
+    }
+    console.log('Usando hoja:', sheet.title);
+
+    // Obtener los encabezados de la hoja
+    const rows = await sheet.getRows();
+    const headers = sheet.headerValues;
+    console.log('Encabezados de la hoja:', headers);
+
+    // Preparar datos para Google Sheets con nombres de columnas exactos
+    const rowData = {
+      'Full name': formData.fullName?.label || formData.fullName?.value || '',
+      'Email': formData.email?.label || formData.email?.value || '',
+      'Phone': formData.phone?.label || formData.phone?.value || '',
+      'Contact Method': formData.contactMethod?.label || '',
+      'primary reason for buying': formData.buyingReason?.label || '',
+      'purchase timeline': formData.timeline?.label || '',
+      'first-time buyer': formData.firstTimeBuyer?.label || '',
+      'budget range': formData.budget?.label || '',
+      'loan approval status': formData.loanStatus?.label || '',
+      'type of property': formData.propertyType?.label || '',
+      'credit score': formData.creditScore?.label || '',
+      'Score': totalScore,
+      'Classification': classification,
+      'Timestamp': new Date().toISOString()
+    };
+
+    console.log('Datos a enviar a Google Sheets:', rowData);
+
+    // Añadir fila a Google Sheets
+    try {
+      const addedRow = await sheet.addRow(rowData);
+      console.log('Datos guardados exitosamente en Google Sheets, fila:', addedRow.rowIndex);
+    } catch (error) {
+      console.error('Error al añadir fila a Google Sheets:', error);
+      throw error;
+    }
+
+    // Redirigir a la página de agradecimiento o devolver respuesta
+    return Response.json({ success: true, score: totalScore, classification });
   } catch (error) {
-    console.error('Error submitting form:', error);
-    console.error('Detalles del error:', error.stack);
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: 'Failed to submit form',
-        message: error.message,
-      }),
-      {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    console.error('Error en el procesamiento del formulario:', error);
+    return Response.json({ error: error.message }, { status: 500 });
   }
 } 
