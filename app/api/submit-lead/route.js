@@ -26,15 +26,48 @@ export async function POST(request) {
     
     // Enviar datos a Google Sheets
     try {
-      const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID);
+      // Usar múltiples nombres posibles para las variables de entorno
+      const sheetId = process.env.GOOGLE_SHEET_ID || process.env.GOOGLE_SHEETS_SHEET_ID;
+      const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
+      const privateKey = (process.env.GOOGLE_PRIVATE_KEY || process.env.GOOGLE_SHEETS_PRIVATE_KEY)?.replace(/\\n/g, '\n');
+      
+      console.log('Intentando conectar a Google Sheets con ID:', sheetId);
+      console.log('Usando email de cliente:', clientEmail);
+      console.log('Clave privada disponible:', privateKey ? 'Sí' : 'No');
+      
+      if (!sheetId || !clientEmail || !privateKey) {
+        throw new Error('Faltan variables de entorno para Google Sheets');
+      }
+      
+      const doc = new GoogleSpreadsheet(sheetId);
       
       await doc.useServiceAccountAuth({
-        client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-        private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+        client_email: clientEmail,
+        private_key: privateKey,
       });
       
       await doc.loadInfo();
-      const sheet = doc.sheetsByIndex[0];
+      console.log('Conexión exitosa a Google Sheets');
+      
+      // Intentar usar el primer sheet o el sheet con nombre específico
+      const sheetName = process.env.GOOGLE_SHEETS_TAB_NAME;
+      let sheet;
+      
+      if (sheetName) {
+        sheet = doc.sheetsByTitle[sheetName];
+        if (!sheet) {
+          console.log(`No se encontró la hoja "${sheetName}", usando la primera hoja`);
+          sheet = doc.sheetsByIndex[0];
+        }
+      } else {
+        sheet = doc.sheetsByIndex[0];
+      }
+      
+      if (!sheet) {
+        throw new Error('No se pudo encontrar una hoja válida en el documento');
+      }
+      
+      console.log('Usando hoja:', sheet.title);
       
       // Preparar los datos para Google Sheets
       const rowData = {
