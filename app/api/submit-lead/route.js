@@ -5,7 +5,16 @@ import { JWT } from 'google-auth-library';
 export async function POST(request) {
   try {
     const formData = await request.json();
-    console.log('Datos recibidos del formulario:', formData);
+    console.log('Datos recibidos del formulario (raw):', JSON.stringify(formData));
+    
+    // Verificar la estructura de los datos
+    console.log('Estructura de formData:');
+    Object.keys(formData).forEach(key => {
+      console.log(`- ${key}:`, typeof formData[key], formData[key] ? 'tiene valor' : 'null/undefined');
+      if (formData[key] && typeof formData[key] === 'object') {
+        console.log(`  - Propiedades de ${key}:`, Object.keys(formData[key]));
+      }
+    });
     
     // Calcular puntuación total (como referencia del código original)
     let totalScore = 0;
@@ -80,6 +89,10 @@ export async function POST(request) {
       }
       
       console.log('Usando hoja:', sheet.title);
+      
+      // Cargar los encabezados para verificar
+      await sheet.loadHeaderRow();
+      console.log('Encabezados de la hoja:', sheet.headerValues);
       
       // Preparar los datos para Google Sheets - usando los nombres exactos de las columnas
       const rowData = {
