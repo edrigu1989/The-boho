@@ -1,13 +1,12 @@
 // Test script para simular una solicitud de formulario a la API
 require('dotenv').config();
-const fetch = require('node-fetch');
+const http = require('http');
 
 async function testFormSubmission() {
   console.log('Iniciando prueba de envío de formulario...');
   
-  // Usar el mismo timestamp para ambos envíos para simular un doble clic
+  // Generar un ID único para cada prueba
   const timestamp = Date.now();
-  // Crear un submission ID único pero que se usará dos veces
   const testSubmissionId = `test-${timestamp}-${Math.random().toString(36).substr(2, 5)}`;
   
   const generateTestEmail = () => `test_${timestamp}@example.com`;
@@ -16,9 +15,9 @@ async function testFormSubmission() {
   const testEmail = generateTestEmail();
   const testPhone = generateTestPhone();
   
-  console.log(`Email de prueba: ${testEmail}`);
-  console.log(`Teléfono de prueba: ${testPhone}`);
-  console.log(`ID de envío: ${testSubmissionId}`);
+  // console.log(`Email de prueba: ${testEmail}`);
+  // console.log(`Teléfono de prueba: ${testPhone}`);
+  // console.log(`ID de envío: ${testSubmissionId}`);
   
   const testData = {
     _submissionId: testSubmissionId,
@@ -35,67 +34,111 @@ async function testFormSubmission() {
     creditScore: { value: 'excellent', label: '740 or Higher', points: 25 }
   };
   
-  const ports = [3000];
-  const timeout = 10000;
+  // Puertos comunes para Next.js
+  const portsToTry = [3000, 3001, 3002, 3003, 3004, 3005];
+  let success = false;
   
-  // Función para hacer envío
-  const makeSubmission = async (attempt) => {
-    console.log(`\nIntentando envío ${attempt}...`);
-    
-    for (const port of ports) {
-      console.log(`Intentando enviar datos al puerto ${port}...`);
+  // Función para hacer un solo envío
+  const makeSubmission = (port) => {
+    return new Promise((resolve) => {
+      console.log(`\nIntentando enviar datos al puerto ${port}...`);
       
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeout);
+      const postData = JSON.stringify(testData);
+      
+      const options = {
+        hostname: 'localhost',
+        port: port,
+        path: '/api/submit-lead',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postData)
+        }
+      };
+      
+      const req = http.request(options, (res) => {
+        console.log(`Código de estado: ${res.statusCode}`);
         
-        const response = await fetch(`http://localhost:${port}/api/submit-lead`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(testData),
-          signal: controller.signal,
+        let responseData = '';
+        
+        res.on('data', (chunk) => {
+          responseData += chunk;
         });
         
-        clearTimeout(timeoutId);
-        
-        console.log(`Código de estado: ${response.status}`);
-        const responseData = await response.json();
-        console.log('Respuesta completa:', JSON.stringify(responseData, null, 2));
-        
-        if (response.ok) {
-          console.log(`✅ Prueba exitosa en puerto ${port}: ${responseData.message || 'El formulario se envió correctamente'}`);
-          if (responseData.redirectUrl) {
-            console.log(`URL de redirección: ${responseData.redirectUrl}`);
+        res.on('end', () => {
+          if (res.statusCode === 200) {
+            try {
+              const response = JSON.parse(responseData);
+              console.log('Respuesta completa:');
+              console.log(JSON.stringify(response, null, 2));
+              
+              console.log(`✅ Prueba exitosa en puerto ${port}: ${response.message}`);
+              console.log(`URL de redirección: ${response.redirectUrl}`);
+              
+              if (response.note) {
+                console.log(`Nota: ${response.note}`);
+              }
+              
+              resolve({
+                success: true,
+                statusCode: res.statusCode,
+                response
+              });
+            } catch (error) {
+              console.error(`Error al procesar la respuesta: ${error.message}`);
+              console.error(`Respuesta raw recibida: ${responseData.substring(0, 100)}...`);
+              resolve({
+                success: false,
+                statusCode: res.statusCode,
+                error: error.message
+              });
+            }
+          } else {
+            console.error(`❌ Error: Código de estado ${res.statusCode}`);
+            console.error(`Respuesta: ${responseData.substring(0, 100)}...`);
+            resolve({
+              success: false,
+              statusCode: res.statusCode
+            });
           }
-          if (responseData.note) {
-            console.log(`Nota: ${responseData.note}`);
-          }
-          return true;
-        } else {
-          console.log(`❌ Error en puerto ${port}: ${responseData.error || 'Error desconocido'}`);
-        }
-      } catch (error) {
-        if (error.name === 'AbortError') {
-          console.log(`⏱️ Timeout en puerto ${port} después de ${timeout}ms`);
-        } else {
-          console.log(`❌ Error en puerto ${port}: ${error.message}`);
-        }
-      }
-    }
-    
-    return false;
+        });
+      });
+      
+      req.on('error', (error) => {
+        console.error(`❌ Error en la solicitud al puerto ${port}: ${error.message}`);
+        resolve({
+          success: false,
+          error: error.message
+        });
+      });
+      
+      // Establecer un timeout para evitar esperas largas
+      req.setTimeout(3000, () => {
+        console.error(`⏱️ Timeout en la conexión al puerto ${port}`);
+        req.destroy();
+        resolve({
+          success: false,
+          error: 'Timeout'
+        });
+      });
+      
+      req.write(postData);
+      req.end();
+    });
   };
   
-  // Hacer primer envío
-  const firstSubmissionResult = await makeSubmission(1);
+  // Intentar cada puerto hasta encontrar uno que funcione
+  for (const port of portsToTry) {
+    const result = await makeSubmission(port);
+    if (result.success) {
+      success = true;
+      break;
+    }
+  }
   
-  // Hacer segundo envío inmediatamente con el mismo ID
-  const secondSubmissionResult = await makeSubmission(2);
-  
-  if (!firstSubmissionResult && !secondSubmissionResult) {
-    console.log('\n❌ No se pudo conectar a ningún puerto. Verifique si el servidor está corriendo.');
+  if (!success) {
+    console.error('\n❌ No se pudo conectar a ningún puerto. Verifique si el servidor está corriendo.');
+    console.error('Puertos intentados:', portsToTry.join(', '));
   }
 }
 
