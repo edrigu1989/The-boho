@@ -65,8 +65,8 @@ export async function POST(request) {
       // Solo lo registramos para depuración
     }
     
-    // URL de redirección - Se puede configurar en variables de entorno
-    const redirectUrl = process.env.REDIRECT_URL || 'https://default-redirect-url.com';
+    // URL de redirección específica para The Boho
+    const redirectUrl = process.env.NEXT_PUBLIC_REDIRECT_URL || 'https://app.gohighlevel.com/v2/preview/vhVyjgV407B2HQnkNtHe?notrack=true';
     
     // Retornar resultado y URL de redirección
     return new Response(
