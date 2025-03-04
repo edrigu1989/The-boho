@@ -1,0 +1,8 @@
+This is a placeholder for texture.png
+
+The actual file should be a subtle linen or paper texture:
+- Should be tileable/seamless
+- Light colored to match the #d4c8ba color scheme
+- This texture will be displayed at 10% opacity
+
+Replace this placeholder with an actual PNG image named "texture.png" 

@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #d4c8ba;
+  --text-primary: #000000;
+  --button-primary: #040e00;
+  --button-secondary: #c8bbab;
+  --active-details: #050e00;
+}
+
+html, body {
+  @apply antialiased;
+  background-color: var(--background);
+  color: var(--text-primary);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #d4c8ba;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c8bbab;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #b1a596;
+}
+
+/* Focus styles */
+*:focus-visible {
+  outline: 2px solid var(--active-details);
+  outline-offset: 2px;
+}
+
+/* Gradient animation for background */
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.gradient-bg {
+  background: linear-gradient(-45deg, #d4c8ba, #c8bbab, #e0d5c7, #d1c5b7);
+  background-size: 400% 400%;
+  animation: gradientShift 15s ease infinite;
+} 

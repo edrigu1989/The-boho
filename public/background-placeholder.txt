@@ -1,0 +1,7 @@
+This is a placeholder for background.jpg
+
+The actual file should be a high-quality image of modern townhouses with wood, glass, and natural gardens.
+Resolution: Recommended 1920×1080 or higher
+File size: Optimized for web (ideally under 500KB)
+
+Replace this placeholder with an actual JPG image named "background.jpg" 
