@@ -1,6 +1,13 @@
 // Endpoint para enviar datos a Google Sheets y manejar la redirección
 import { google } from 'googleapis';
 
+// Set para almacenar los IDs de envíos ya procesados
+// NOTA IMPORTANTE: En entornos serverless como Vercel, este Set se reinicia con cada instancia.
+// Esto significa que solo protege contra duplicados dentro de la misma instancia de función,
+// pero no entre diferentes invocaciones o servidores. La protección principal contra duplicados
+// viene del frontend (debounce y estado isSubmitting) y la verificación por email/teléfono.
+const processedSubmissionIds = new Set();
+
 export async function POST(request) {
   console.log('=== INICIO DEL PROCESAMIENTO DEL FORMULARIO ===');
   
@@ -9,6 +16,20 @@ export async function POST(request) {
     console.log('Intentando leer los datos del formulario...');
     const formData = await request.json();
     console.log('Datos recibidos del formulario:', JSON.stringify(formData));
+    
+    // Verificar si este envío ya ha sido procesado usando el ID único
+    const submissionId = formData._submissionId;
+    if (submissionId && processedSubmissionIds.has(submissionId)) {
+      console.log(`Envío duplicado detectado con ID: ${submissionId}. No se procesará nuevamente.`);
+      const redirectUrl = process.env.NEXT_PUBLIC_REDIRECT_URL || 'https://app.gohighlevel.com/v2/preview/vhVyjgV407B2HQnkNtHe?notrack=true';
+      
+      return Response.json({
+        success: true,
+        message: 'Form already submitted',
+        redirectUrl: redirectUrl,
+        note: 'Duplicate submission detected'
+      });
+    }
     
     // Extraer valores de los campos del formulario para verificación de duplicados
     const email = formData.email?.value || '';
@@ -107,24 +128,6 @@ export async function POST(request) {
     // 4. Preparar datos para Google Sheets
     console.log('Preparando datos para Google Sheets...');
     
-    // Definir los encabezados esperados
-    const expectedHeaders = [
-      'Full Name',
-      'Email',
-      'Phone',
-      'Contact Method',
-      'Primary Reason for Buying',
-      'Purchase Timeline',
-      'First-time Buyer',
-      'Budget Range',
-      'Loan Approval Status',
-      'Property Type',
-      'Credit Score Range',
-      'Lead Score',
-      'Lead Classification',
-      'Timestamp'
-    ];
-    
     // Extraer valores de los campos del formulario
     const fullName = formData.fullName?.label || formData.fullName?.value || '';
     const contactMethod = formData.contactMethod?.label || '';
@@ -151,7 +154,7 @@ export async function POST(request) {
         loanStatus,
         propertyType,
         creditScore,
-        Number(normalizedScore),
+        normalizedScore,
         classification,
         timestamp
       ]
@@ -173,11 +176,27 @@ export async function POST(request) {
     // Si no hay encabezados o hay menos de los que necesitamos, los creamos
     if (headers.length < 14) {
       console.log('Creando encabezados en la hoja...');
+      const expectedHeaders = [
+        'Full Name',
+        'Email',
+        'Phone',
+        'Contact Method',
+        'Primary Reason for Buying',
+        'Purchase Timeline',
+        'First-time Buyer',
+        'Budget Range',
+        'Loan Approval Status',
+        'Property Type',
+        'Credit Score Range',
+        'Lead Score',
+        'Lead Classification',
+        'Timestamp'
+      ];
       
       await sheets.spreadsheets.values.update({
         spreadsheetId: SHEET_ID,
         range: '1:1',
-        valueInputOption: 'USER_ENTERED',
+        valueInputOption: 'RAW',
         resource: {
           values: [expectedHeaders]
         }
@@ -190,7 +209,7 @@ export async function POST(request) {
     const response = await sheets.spreadsheets.values.append({
       spreadsheetId: SHEET_ID,
       range: 'A:N', // Rango de columnas A hasta N
-      valueInputOption: 'USER_ENTERED',
+      valueInputOption: 'RAW',
       insertDataOption: 'INSERT_ROWS',
       resource: {
         values: values,
@@ -204,6 +223,12 @@ export async function POST(request) {
     console.log('Preparando URL de redirección...');
     const redirectUrl = process.env.NEXT_PUBLIC_REDIRECT_URL || 'https://app.gohighlevel.com/v2/preview/vhVyjgV407B2HQnkNtHe?notrack=true';
     console.log('URL de redirección:', redirectUrl);
+
+    // Guardar este ID de envío como procesado
+    if (submissionId) {
+      processedSubmissionIds.add(submissionId);
+      console.log(`ID de envío ${submissionId} guardado para prevenir envíos duplicados`);
+    }
 
     // 7. Retornar respuesta exitosa (sin incluir información de puntuación)
     console.log('Enviando respuesta exitosa al cliente (sin información de puntuación)');

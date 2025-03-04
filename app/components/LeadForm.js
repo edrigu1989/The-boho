@@ -152,6 +152,7 @@ export default function LeadForm({ onSubmit, onReset, isLoading, currentStep, on
   const [errors, setErrors] = useState({});
   const [selectedOptions, setSelectedOptions] = useState([]);
   const [isFocused, setIsFocused] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const currentStepData = formSteps[currentStep - 1];
 
@@ -255,6 +256,13 @@ export default function LeadForm({ onSubmit, onReset, isLoading, currentStep, on
   const handleSubmit = (e) => {
     e.preventDefault();
     
+    // Prevenir envíos duplicados
+    if (isSubmitting) {
+      return;
+    }
+    
+    setIsSubmitting(true);
+    
     if (validateCurrentStep()) {
       const formDataWithPoints = {};
       
@@ -298,7 +306,21 @@ export default function LeadForm({ onSubmit, onReset, isLoading, currentStep, on
         }
       }
       
+      // Generar un ID único para este envío
+      const submissionId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Incluir el ID de envío en los datos
+      formDataWithPoints._submissionId = submissionId;
+      
       onSubmit(formDataWithPoints);
+      
+      // Restablecer el estado isSubmitting después de un tiempo
+      setTimeout(() => {
+        setIsSubmitting(false);
+      }, 3000); // Prevenimos reenvíos por al menos 3 segundos
+    } else {
+      // Si la validación falla, permitir otro intento
+      setIsSubmitting(false);
     }
   };
 
@@ -485,7 +507,7 @@ export default function LeadForm({ onSubmit, onReset, isLoading, currentStep, on
             type="button"
             onClick={onPrevStep}
             className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all duration-200 flex items-center border border-gray-200"
-            disabled={isLoading}
+            disabled={isLoading || isSubmitting}
             whileHover={{ x: -3 }}
             whileTap={{ scale: 0.97 }}
           >
@@ -500,12 +522,14 @@ export default function LeadForm({ onSubmit, onReset, isLoading, currentStep, on
         
         <motion.button
           type="submit"
-          className="px-6 py-3 bg-[#8C7851] text-white rounded-xl hover:bg-[#A65E3A] transition-all duration-300 ease-in-out flex items-center shadow-lg border border-[#8C7851]/30"
-          disabled={isLoading}
+          className={`px-6 py-3 bg-[#8C7851] text-white rounded-xl hover:bg-[#A65E3A] transition-all duration-300 ease-in-out flex items-center shadow-lg border border-[#8C7851]/30 ${
+            isLoading || isSubmitting ? 'opacity-70 cursor-not-allowed' : ''
+          }`}
+          disabled={isLoading || isSubmitting}
           whileHover={{ x: 3, boxShadow: "0 0 15px rgba(140, 120, 81, 0.5)" }}
           whileTap={{ scale: 0.97 }}
         >
-          {isLoading ? (
+          {isLoading || isSubmitting ? (
             <>
               <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>

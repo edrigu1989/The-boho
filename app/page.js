@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import LeadForm from './components/LeadForm';
 import ThankYouScreen from './components/ThankYouScreen';
@@ -14,6 +14,8 @@ export default function Home() {
   const [formResponses, setFormResponses] = useState({});
   const [formProgress, setFormProgress] = useState(0);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const submitTimeoutRef = useRef(null);
+  const isSubmittingRef = useRef(false);
 
   // Track mouse position for subtle movement effect
   useEffect(() => {
@@ -30,8 +32,23 @@ export default function Home() {
     };
   }, []);
 
+  // Función con debounce para evitar envíos múltiples
   const handleSubmitForm = async (formData) => {
+    // Si ya estamos enviando, cancelar
+    if (isSubmittingRef.current) {
+      console.log("Operación de envío ya en progreso, ignorando solicitud adicional");
+      return;
+    }
+    
+    // Marcar como enviando y mostrar el spinner
+    isSubmittingRef.current = true;
     setIsLoading(true);
+    
+    // Limpiar cualquier timeout previo
+    if (submitTimeoutRef.current) {
+      clearTimeout(submitTimeoutRef.current);
+    }
+
     console.log("Enviando datos del formulario:", formData);
     
     try {
@@ -68,7 +85,11 @@ export default function Home() {
       console.error("Error al enviar el formulario:", error);
       alert(`Hubo un error al enviar el formulario: ${error.message}`);
     } finally {
-      setIsLoading(false);
+      // Establecer un timeout antes de permitir otro envío
+      submitTimeoutRef.current = setTimeout(() => {
+        isSubmittingRef.current = false;
+        setIsLoading(false);
+      }, 5000); // Bloquear nuevos envíos por 5 segundos
     }
   };
 
