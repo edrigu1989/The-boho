@@ -1,4 +1,64 @@
-// Endpoint para enviar datos a Google Sheets y manejar la redirección
+require('dotenv').config();
+const { google } = require('googleapis');
+const fs = require('fs');
+const path = require('path');
+
+async function fixSheetIntegration() {
+  console.log('=== CORRECCIÓN DE INTEGRACIÓN CON GOOGLE SHEETS ===');
+  
+  try {
+    // 1. Obtener variables de entorno
+    const SHEET_ID = process.env.GOOGLE_SHEETS_SHEET_ID;
+    const CLIENT_EMAIL = process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
+    let PRIVATE_KEY = process.env.GOOGLE_SHEETS_PRIVATE_KEY;
+    
+    console.log('SHEET_ID:', SHEET_ID ? 'Disponible' : 'No disponible');
+    console.log('CLIENT_EMAIL:', CLIENT_EMAIL ? 'Disponible' : 'No disponible');
+    console.log('PRIVATE_KEY:', PRIVATE_KEY ? 'Disponible' : 'No disponible');
+    
+    // Verificar variables de entorno
+    if (!SHEET_ID || !CLIENT_EMAIL || !PRIVATE_KEY) {
+      throw new Error('Faltan variables de entorno para Google Sheets');
+    }
+    
+    // Procesar la clave privada
+    if (PRIVATE_KEY.startsWith('"') && PRIVATE_KEY.endsWith('"')) {
+      PRIVATE_KEY = PRIVATE_KEY.slice(1, -1);
+    }
+    
+    if (PRIVATE_KEY.includes('\\n')) {
+      PRIVATE_KEY = PRIVATE_KEY.replace(/\\n/g, '\n');
+    }
+    
+    // 2. Crear JWT para autenticación
+    const auth = new google.auth.JWT(
+      CLIENT_EMAIL,
+      null,
+      PRIVATE_KEY,
+      ['https://www.googleapis.com/auth/spreadsheets']
+    );
+    
+    const sheets = google.sheets({ version: 'v4', auth });
+    
+    // 3. Modificar el archivo route.js
+    const routeFilePath = path.join(process.cwd(), 'app', 'api', 'submit-lead', 'route.js');
+    
+    if (!fs.existsSync(routeFilePath)) {
+      throw new Error(`El archivo ${routeFilePath} no existe`);
+    }
+    
+    console.log(`Modificando el archivo ${routeFilePath}...`);
+    
+    // Leer el contenido actual
+    let content = fs.readFileSync(routeFilePath, 'utf8');
+    
+    // Crear una copia de seguridad
+    const backupPath = `${routeFilePath}.backup`;
+    fs.writeFileSync(backupPath, content);
+    console.log(`Copia de seguridad creada en ${backupPath}`);
+    
+    // Modificar el código para usar un enfoque más robusto
+    const newCode = `// Endpoint para enviar datos a Google Sheets y manejar la redirección
 import { google } from 'googleapis';
 
 export async function POST(request) {
@@ -62,8 +122,13 @@ export async function POST(request) {
       console.log('Comillas removidas de la clave privada');
     }
     
+    if (PRIVATE_KEY.includes('\\\\n')) {
+      PRIVATE_KEY = PRIVATE_KEY.replace(/\\\\n/g, '\\n');
+      console.log('Caracteres \\\\n reemplazados por \\n');
+    }
+    
     if (PRIVATE_KEY.includes('\\n')) {
-      PRIVATE_KEY = PRIVATE_KEY.replace(/\\n/g, '\n');
+      PRIVATE_KEY = PRIVATE_KEY.replace(/\\n/g, '\\n');
       console.log('Caracteres \\n reemplazados por saltos de línea reales');
     }
     
@@ -107,24 +172,6 @@ export async function POST(request) {
     // 4. Preparar datos para Google Sheets
     console.log('Preparando datos para Google Sheets...');
     
-    // Definir los encabezados esperados
-    const expectedHeaders = [
-      'Full Name',
-      'Email',
-      'Phone',
-      'Contact Method',
-      'Primary Reason for Buying',
-      'Purchase Timeline',
-      'First-time Buyer',
-      'Budget Range',
-      'Loan Approval Status',
-      'Property Type',
-      'Credit Score Range',
-      'Lead Score',
-      'Lead Classification',
-      'Timestamp'
-    ];
-    
     // Extraer valores de los campos del formulario
     const fullName = formData.fullName?.label || formData.fullName?.value || '';
     const contactMethod = formData.contactMethod?.label || '';
@@ -151,7 +198,7 @@ export async function POST(request) {
         loanStatus,
         propertyType,
         creditScore,
-        normalizedScore,
+        normalizedScore.toString(),
         classification,
         timestamp
       ]
@@ -162,7 +209,7 @@ export async function POST(request) {
     // 5. Enviar datos a Google Sheets usando la API directamente
     console.log('Enviando datos a Google Sheets...');
     
-    // Primero, verificar si necesitamos crear o actualizar los encabezados
+    // Primero, verificar si necesitamos crear los encabezados
     const headerResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SHEET_ID,
       range: '1:1', // Primera fila
@@ -173,11 +220,27 @@ export async function POST(request) {
     // Si no hay encabezados o hay menos de los que necesitamos, los creamos
     if (headers.length < 14) {
       console.log('Creando encabezados en la hoja...');
+      const expectedHeaders = [
+        'Full Name',
+        'Email',
+        'Phone',
+        'Contact Method',
+        'Primary Reason for Buying',
+        'Purchase Timeline',
+        'First-time Buyer',
+        'Budget Range',
+        'Loan Approval Status',
+        'Property Type',
+        'Credit Score Range',
+        'Lead Score',
+        'Lead Classification',
+        'Timestamp'
+      ];
       
       await sheets.spreadsheets.values.update({
         spreadsheetId: SHEET_ID,
         range: '1:1',
-        valueInputOption: 'USER_ENTERED',
+        valueInputOption: 'RAW',
         resource: {
           values: [expectedHeaders]
         }
@@ -190,7 +253,7 @@ export async function POST(request) {
     const response = await sheets.spreadsheets.values.append({
       spreadsheetId: SHEET_ID,
       range: 'A:N', // Rango de columnas A hasta N
-      valueInputOption: 'USER_ENTERED',
+      valueInputOption: 'RAW',
       insertDataOption: 'INSERT_ROWS',
       resource: {
         values: values,
@@ -229,4 +292,22 @@ export async function POST(request) {
   } finally {
     console.log('=== FIN DEL PROCESAMIENTO DEL FORMULARIO ===');
   }
+}`;
+    
+    // Escribir el nuevo código
+    fs.writeFileSync(routeFilePath, newCode);
+    console.log('✅ Archivo modificado correctamente');
+    
+    console.log('\n=== INSTRUCCIONES ADICIONALES ===');
+    console.log('1. Despliega los cambios a Vercel');
+    console.log('2. Verifica que la integración funcione correctamente');
+    console.log('3. Si sigues teniendo problemas, ejecuta el script check-sheet-headers.js para verificar los encabezados');
+    
+  } catch (error) {
+    console.error('Error:', error.message);
+    console.error('Stack trace:', error.stack);
+  }
 }
+
+// Ejecutar la función
+fixSheetIntegration(); 
