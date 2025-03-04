@@ -14,6 +14,7 @@ export default function Home() {
   const [formResponses, setFormResponses] = useState({});
   const [formProgress, setFormProgress] = useState(0);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [errorMessage, setErrorMessage] = useState('');
   const submitTimeoutRef = useRef(null);
   const isSubmittingRef = useRef(false);
 
@@ -40,6 +41,9 @@ export default function Home() {
       return;
     }
     
+    // Limpiar cualquier mensaje de error anterior
+    setErrorMessage('');
+    
     // Marcar como enviando y mostrar el spinner
     isSubmittingRef.current = true;
     setIsLoading(true);
@@ -52,17 +56,19 @@ export default function Home() {
     console.log("Enviando datos del formulario:", formData);
     
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 segundo timeout
+      
       const response = await fetch('/api/submit-lead', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(formData),
+        signal: controller.signal
       });
       
-      if (!response.ok) {
-        throw new Error(`Error en la respuesta del servidor: ${response.status}`);
-      }
+      clearTimeout(timeoutId);
       
       const data = await response.json();
       console.log("Respuesta del servidor:", data);
@@ -79,21 +85,37 @@ export default function Home() {
         // Mostrar pantalla de agradecimiento
         setShowThankYou(true);
       } else {
-        throw new Error(data.message || "Error desconocido en el servidor");
+        // Manejar respuesta de error pero con código 200
+        console.warn("Error reportado por el servidor:", data.message);
+        setErrorMessage(data.message || "Hubo un problema al procesar tu información. Por favor, inténtalo de nuevo.");
+        
+        // Permitir intentar de nuevo después de un breve tiempo
+        setTimeout(() => {
+          isSubmittingRef.current = false;
+          setIsLoading(false);
+        }, 2000);
       }
     } catch (error) {
       console.error("Error al enviar el formulario:", error);
-      alert(`Hubo un error al enviar el formulario: ${error.message}`);
-    } finally {
-      // Establecer un timeout antes de permitir otro envío
-      submitTimeoutRef.current = setTimeout(() => {
+      
+      if (error.name === 'AbortError') {
+        setErrorMessage("La solicitud tardó demasiado tiempo. Por favor, verifica tu conexión e inténtalo de nuevo.");
+      } else {
+        setErrorMessage(`Hubo un error al enviar el formulario. Por favor, inténtalo nuevamente más tarde. ${error.message}`);
+      }
+      
+      // Permitir intentar nuevamente después de un tiempo
+      setTimeout(() => {
         isSubmittingRef.current = false;
         setIsLoading(false);
-      }, 5000); // Bloquear nuevos envíos por 5 segundos
+      }, 2000);
     }
   };
 
   const handleNextStep = (formData) => {
+    // Limpiar cualquier mensaje de error
+    setErrorMessage('');
+    
     // Update form responses
     const updatedResponses = { ...formResponses, ...formData };
     setFormResponses(updatedResponses);
@@ -110,6 +132,9 @@ export default function Home() {
   };
 
   const handlePrevStep = () => {
+    // Limpiar cualquier mensaje de error
+    setErrorMessage('');
+    
     if (formStep > 1) {
       setFormStep(prev => prev - 1);
       setFormProgress(((formStep - 2) / 11) * 100);
@@ -120,6 +145,7 @@ export default function Home() {
     setFormStep(1);
     setFormResponses({});
     setFormProgress(0);
+    setErrorMessage('');
   };
 
   // Subtle movement effect values
@@ -185,6 +211,32 @@ export default function Home() {
                     />
                   </div>
                 </div>
+
+                {/* Error message display */}
+                {errorMessage && (
+                  <motion.div 
+                    className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm"
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    <div className="flex items-start">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      <span>{errorMessage}</span>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        setErrorMessage('');
+                        isSubmittingRef.current = false;
+                        setIsLoading(false);
+                      }}
+                      className="mt-2 text-sm text-red-700 underline hover:text-red-800"
+                    >
+                      Intentar nuevamente
+                    </button>
+                  </motion.div>
+                )}
 
                 <div className="p-6 md:p-8">
                   <AnimatePresence mode="wait">

@@ -143,25 +143,7 @@ export async function POST(request) {
     const creditScore = formData.creditScore?.label || '';
     const timestamp = new Date().toISOString();
     
-    // 6. Crear una fila con los datos (usando valores fijos para los encabezados)
-    const newRow = [
-      fullName,                // A - Nombre completo
-      email,                   // B - Email
-      phone,                   // C - Teléfono
-      contactMethod,           // D - Método de contacto
-      buyingReason,            // E - Razón de compra
-      timeline,                // F - Plazo de compra
-      firstTimeBuyer,          // G - Primera vez
-      budget,                  // H - Presupuesto
-      loanStatus,              // I - Estado del préstamo
-      propertyType,            // J - Tipo de propiedad
-      creditScore,             // K - Puntaje de crédito
-      normalizedScore.toString(), // L - Score normalizado
-      classification,          // M - Clasificación
-      timestamp                // N - Timestamp
-    ];
-    
-    // 7. Obtener el número de filas actuales para añadir en la siguiente disponible
+    // 6. Obtener el número de filas actuales para añadir en la siguiente disponible
     console.log('Obteniendo número de filas de la hoja...');
     
     let nextRow = 2; // Por defecto empezamos en la fila 2 (después de los encabezados)
@@ -182,54 +164,32 @@ export async function POST(request) {
       // Continuamos con la fila 2 por defecto
     }
     
-    // 8. Insertar los datos directamente en la fila correspondiente
+    // 7. Insertar los datos directamente usando el API de valores
     console.log('Insertando datos en la hoja...');
     
     try {
-      // Asegurar que los encabezados estén correctos primero
-      const headers = [
-        'Nombre',
-        'Email',
-        'Teléfono',
-        'Método de Contacto',
-        'Razón de Compra',
-        'Plazo de Compra', 
-        'Primera Vez',
-        'Presupuesto',
-        'Estado de Préstamo',
-        'Tipo de Propiedad',
-        'Puntaje de Crédito',
-        'Score',
-        'Clasificación',
-        'Fecha'
-      ];
-      
-      // Verificar si necesitamos crear encabezados
-      const headerCheck = await sheets.spreadsheets.values.get({
-        spreadsheetId: SHEET_ID,
-        range: '1:1', // Primera fila (encabezados)
-      });
-      
-      // Si no hay encabezados o están vacíos, los creamos
-      if (!headerCheck.data.values || headerCheck.data.values[0].length === 0) {
-        await sheets.spreadsheets.values.update({
-          spreadsheetId: SHEET_ID,
-          range: 'A1:N1',
-          valueInputOption: 'RAW',
-          resource: {
-            values: [headers]
-          }
-        });
-        console.log('Encabezados creados exitosamente');
-      }
-      
-      // Insertar la nueva fila en la posición correspondiente
+      // Usar el método values.update más directo en lugar de addRow
       const insertResponse = await sheets.spreadsheets.values.update({
         spreadsheetId: SHEET_ID,
         range: `A${nextRow}:N${nextRow}`,
         valueInputOption: 'RAW',
         resource: {
-          values: [newRow]
+          values: [[
+            fullName,                // A - Nombre completo
+            email,                   // B - Email
+            phone,                   // C - Teléfono
+            contactMethod,           // D - Método de contacto
+            buyingReason,            // E - Razón de compra
+            timeline,                // F - Plazo de compra
+            firstTimeBuyer,          // G - Primera vez
+            budget,                  // H - Presupuesto
+            loanStatus,              // I - Estado del préstamo
+            propertyType,            // J - Tipo de propiedad
+            creditScore,             // K - Puntaje de crédito
+            normalizedScore.toString(), // L - Score normalizado
+            classification,          // M - Clasificación
+            timestamp                // N - Timestamp
+          ]]
         }
       });
       
@@ -237,16 +197,24 @@ export async function POST(request) {
       console.log('Datos guardados exitosamente en la fila', nextRow);
     } catch (error) {
       console.error('Error al insertar datos en Google Sheets:', error.message);
-      throw new Error(`Error al guardar en Google Sheets: ${error.message}`);
+      console.error('Detalles del error:', error);
+      
+      // En lugar de lanzar un error, respondemos con un mensaje amigable
+      return Response.json({
+        success: false,
+        error: 'Error en Google Sheets',
+        message: `No se pudo guardar los datos: ${error.message}`,
+        redirectUrl: process.env.NEXT_PUBLIC_REDIRECT_URL || 'https://app.gohighlevel.com/v2/preview/vhVyjgV407B2HQnkNtHe?notrack=true'
+      }, { status: 200 }); // Enviamos 200 en lugar de 500 para no mostrar error al usuario
     }
 
-    // 9. Guardar el ID de submisión en el Set para prevenir duplicados
+    // 8. Guardar el ID de submisión en el Set para prevenir duplicados
     if (submissionId) {
       processedSubmissionIds.add(submissionId);
       console.log(`ID de envío ${submissionId} guardado para prevenir envíos duplicados`);
     }
 
-    // 10. Preparar y retornar respuesta exitosa
+    // 9. Preparar y retornar respuesta exitosa
     console.log('Preparando URL de redirección...');
     const redirectUrl = process.env.NEXT_PUBLIC_REDIRECT_URL || 'https://app.gohighlevel.com/v2/preview/vhVyjgV407B2HQnkNtHe?notrack=true';
     
@@ -257,18 +225,22 @@ export async function POST(request) {
       redirectUrl: redirectUrl
     });
   } catch (error) {
-    // Manejar errores
+    // Manejar errores de manera más detallada
     console.error('Error en el procesamiento del formulario:', error.message);
     console.error('Stack trace:', error.stack);
+    
+    // Proporcionar información detallada en desarrollo, pero limitada en producción
+    const isProduction = process.env.NODE_ENV === 'production';
     
     return Response.json(
       {
         success: false,
         error: 'Failed to submit form',
         message: error.message,
-        details: error.stack,
+        details: isProduction ? 'Error details hidden in production' : error.stack,
+        redirectUrl: process.env.NEXT_PUBLIC_REDIRECT_URL || 'https://app.gohighlevel.com/v2/preview/vhVyjgV407B2HQnkNtHe?notrack=true'
       },
-      { status: 500 }
+      { status: 200 } // Usar 200 en lugar de 500 para evitar alarmar al usuario
     );
   } finally {
     console.log('=== FIN DEL PROCESAMIENTO DEL FORMULARIO ===');
