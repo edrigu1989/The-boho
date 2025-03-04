@@ -65,18 +65,21 @@ export async function POST(request) {
     console.log('Obteniendo variables de entorno para Google Sheets...');
     const SHEET_ID = process.env.GOOGLE_SHEETS_SHEET_ID;
     const CLIENT_EMAIL = process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
-    let PRIVATE_KEY = process.env.GOOGLE_SHEETS_PRIVATE_KEY;
-    
-    console.log('SHEET_ID:', SHEET_ID ? 'Disponible' : 'No disponible');
-    console.log('CLIENT_EMAIL:', CLIENT_EMAIL ? 'Disponible' : 'No disponible');
-    console.log('PRIVATE_KEY:', PRIVATE_KEY ? 'Disponible' : 'No disponible');
+    const PRIVATE_KEY_RAW = process.env.GOOGLE_SHEETS_PRIVATE_KEY;
     
     // Verificar variables de entorno
-    if (!SHEET_ID || !CLIENT_EMAIL || !PRIVATE_KEY) {
+    if (!SHEET_ID || !CLIENT_EMAIL || !PRIVATE_KEY_RAW) {
       throw new Error('Faltan variables de entorno para Google Sheets');
     }
     
-    // Procesar la clave privada - VERSIÓN MEJORADA para mayor compatibilidad
+    console.log('SHEET_ID:', SHEET_ID ? 'Disponible' : 'No disponible');
+    console.log('CLIENT_EMAIL:', CLIENT_EMAIL ? 'Disponible' : 'No disponible');
+    console.log('PRIVATE_KEY:', PRIVATE_KEY_RAW ? 'Disponible' : 'No disponible');
+    
+    // 3. Procesar la clave privada para manejar correctamente el formato
+    // Este es un paso crítico para evitar errores de SSL/decodificación
+    let PRIVATE_KEY = PRIVATE_KEY_RAW;
+    
     console.log('Procesando la clave privada...');
     
     // Eliminar comillas adicionales si existen
@@ -84,147 +87,142 @@ export async function POST(request) {
       PRIVATE_KEY = PRIVATE_KEY.slice(1, -1);
     }
     
-    // Reemplazar secuencias de escape
-    if (PRIVATE_KEY.includes('\\n')) {
-      PRIVATE_KEY = PRIVATE_KEY.replace(/\\n/g, '\n');
-    }
+    // Reemplazar secuencias de escape con saltos de línea reales
+    PRIVATE_KEY = PRIVATE_KEY.replace(/\\n/g, '\n');
     
-    // Verificar si la clave tiene formato PEM correcto
+    // Asegurar que la clave tiene el formato PEM correcto
     if (!PRIVATE_KEY.includes('-----BEGIN PRIVATE KEY-----')) {
-      console.log('La clave privada no tiene el formato PEM correcto, intentando reformatear...');
       PRIVATE_KEY = `-----BEGIN PRIVATE KEY-----\n${PRIVATE_KEY}\n-----END PRIVATE KEY-----`;
     }
     
-    // 3. Crear JWT para autenticación
-    console.log('Creando autenticación JWT...');
+    // 4. Crear la autenticación para Google Sheets usando la API de Google
+    console.log('Creando cliente para Google Sheets...');
+    
+    const auth = new google.auth.GoogleAuth({
+      credentials: {
+        client_email: CLIENT_EMAIL,
+        private_key: PRIVATE_KEY
+      },
+      scopes: ['https://www.googleapis.com/auth/spreadsheets']
+    });
+    
+    // Obtener un cliente autenticado
+    const authClient = await auth.getClient();
+    
+    // Crear el cliente de Google Sheets
+    const sheets = google.sheets({ version: 'v4', auth: authClient });
+    
+    // 5. Verificar si el lead ya existe en la hoja de cálculo por email o teléfono
+    let isDuplicate = false;
+    
     try {
-      const auth = new google.auth.JWT(
-        CLIENT_EMAIL,
-        null,
-        PRIVATE_KEY,
-        ['https://www.googleapis.com/auth/spreadsheets']
-      );
+      console.log('Verificando si el lead ya existe...');
+      const existingData = await sheets.spreadsheets.values.get({
+        spreadsheetId: SHEET_ID,
+        range: 'A:C', // Columnas con nombre, email y teléfono
+      });
       
-      const sheets = google.sheets({ version: 'v4', auth });
+      const rows = existingData.data.values || [];
       
-      // 4. Verificar si el lead ya existe en la hoja de cálculo
-      try {
-        console.log('Verificando duplicados en la base de datos...');
-        const existingData = await sheets.spreadsheets.values.get({
-          spreadsheetId: SHEET_ID,
-          range: 'A:C', // Solo necesitamos las columnas de nombre, email y teléfono
+      if (rows.length > 1) { // Si hay datos más allá de los encabezados
+        isDuplicate = rows.slice(1).some(row => {
+          const rowEmail = row[1] ? row[1].toString().trim() : '';
+          const rowPhone = row[2] ? row[2].toString().trim() : '';
+          return (email && rowEmail === email) || (phone && rowPhone === phone);
         });
         
-        const rows = existingData.data.values || [];
-        if (rows.length > 1) { // Asegurarnos de que hay datos más allá de los encabezados
-          const isDuplicate = rows.slice(1).some(row => {
-            return (email && row[1] === email) || (phone && row[2] === phone);
-          });
+        if (isDuplicate) {
+          console.log('Lead duplicado detectado. No se agregará a la hoja de cálculo.');
+          const redirectUrl = process.env.NEXT_PUBLIC_REDIRECT_URL || 'https://app.gohighlevel.com/v2/preview/vhVyjgV407B2HQnkNtHe?notrack=true';
           
-          if (isDuplicate) {
-            console.log('Lead duplicado detectado. No se agregará a la hoja de cálculo.');
-            // Aún así redirigimos al usuario para una buena experiencia
-            const redirectUrl = process.env.NEXT_PUBLIC_REDIRECT_URL || 'https://app.gohighlevel.com/v2/preview/vhVyjgV407B2HQnkNtHe?notrack=true';
-            
-            return Response.json({
-              success: true,
-              message: 'Form submitted successfully',
-              redirectUrl: redirectUrl,
-              note: 'Lead already exists in database'
-            });
-          }
+          return Response.json({
+            success: true,
+            message: 'Form submitted successfully',
+            redirectUrl: redirectUrl,
+            note: 'Lead already exists in database'
+          });
         }
-      } catch (error) {
-        console.error('Error al verificar duplicados:', error.message);
-        // Continuamos incluso si hay un error en la verificación de duplicados
+      }
+    } catch (error) {
+      console.error('Error al verificar duplicados:', error.message);
+      // Continuamos con el proceso aunque haya un error en la verificación
+    }
+    
+    // 6. Preparar los datos para inserción
+    console.log('Preparando datos para Google Sheets...');
+    
+    const fullName = formData.fullName?.label || formData.fullName?.value || '';
+    const contactMethod = formData.contactMethod?.label || '';
+    const buyingReason = formData.buyingReason?.label || '';
+    const timeline = formData.timeline?.label || '';
+    const firstTimeBuyer = formData.firstTimeBuyer?.label || '';
+    const budget = formData.budget?.label || '';
+    const loanStatus = formData.loanStatus?.label || '';
+    const propertyType = formData.propertyType?.label || '';
+    const creditScore = formData.creditScore?.label || '';
+    const timestamp = new Date().toISOString();
+    
+    // 7. Determinar la siguiente fila disponible
+    let nextRow = 2; // Por defecto comenzamos en la fila 2 (después del encabezado)
+    
+    try {
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SHEET_ID,
+        range: 'A:A', // Solo necesitamos la primera columna para contar filas
+      });
+      
+      if (response.data.values) {
+        nextRow = response.data.values.length + 1;
       }
       
-      // 5. Extraer valores para insertar en la hoja
-      console.log('Preparando datos para inserción...');
+      console.log(`Se insertarán datos en la fila ${nextRow}`);
+    } catch (error) {
+      console.warn('Error al obtener el número de filas, usando fila 2 por defecto:', error.message);
+      // Continuamos con la fila 2 por defecto
+    }
+    
+    // 8. Insertar los datos en la hoja
+    console.log('Insertando datos en Google Sheets...');
+    
+    try {
+      // Crear arreglo con los valores a insertar
+      const rowValues = [
+        fullName,                   // A - Nombre completo
+        email,                      // B - Email
+        phone,                      // C - Teléfono
+        contactMethod,              // D - Método de contacto
+        buyingReason,               // E - Razón de compra
+        timeline,                   // F - Plazo de compra
+        firstTimeBuyer,             // G - Primera vez
+        budget,                     // H - Presupuesto
+        loanStatus,                 // I - Estado del préstamo
+        propertyType,               // J - Tipo de propiedad
+        creditScore,                // K - Puntaje de crédito
+        normalizedScore.toString(), // L - Score normalizado
+        classification,             // M - Clasificación
+        timestamp                   // N - Timestamp
+      ];
       
-      const fullName = formData.fullName?.label || formData.fullName?.value || '';
-      const contactMethod = formData.contactMethod?.label || '';
-      const buyingReason = formData.buyingReason?.label || '';
-      const timeline = formData.timeline?.label || '';
-      const firstTimeBuyer = formData.firstTimeBuyer?.label || '';
-      const budget = formData.budget?.label || '';
-      const loanStatus = formData.loanStatus?.label || '';
-      const propertyType = formData.propertyType?.label || '';
-      const creditScore = formData.creditScore?.label || '';
-      const timestamp = new Date().toISOString();
-      
-      // 6. Obtener el número de filas actuales para añadir en la siguiente disponible
-      console.log('Obteniendo número de filas de la hoja...');
-      
-      let nextRow = 2; // Por defecto empezamos en la fila 2 (después de los encabezados)
-      
-      try {
-        const response = await sheets.spreadsheets.values.get({
-          spreadsheetId: SHEET_ID,
-          range: 'A:A', // Solo necesitamos la primera columna para contar filas
-        });
-        
-        if (response.data.values) {
-          nextRow = response.data.values.length + 1;
+      // Actualizar los valores en la hoja
+      const insertResponse = await sheets.spreadsheets.values.update({
+        spreadsheetId: SHEET_ID,
+        range: `A${nextRow}:N${nextRow}`,
+        valueInputOption: 'RAW',
+        resource: {
+          values: [rowValues]
         }
-        
-        console.log(`Insertando datos en la fila ${nextRow}`);
-      } catch (error) {
-        console.warn('Error al obtener el número de filas, usando fila 2:', error.message);
-        // Continuamos con la fila 2 por defecto
-      }
+      });
       
-      // 7. Insertar los datos directamente usando el API de valores
-      console.log('Insertando datos en la hoja...');
+      console.log('Respuesta de Google Sheets:', insertResponse.status);
+      console.log('Datos guardados exitosamente en Google Sheets');
       
-      try {
-        // Usar el método values.update más directo en lugar de addRow
-        const insertResponse = await sheets.spreadsheets.values.update({
-          spreadsheetId: SHEET_ID,
-          range: `A${nextRow}:N${nextRow}`,
-          valueInputOption: 'RAW',
-          resource: {
-            values: [[
-              fullName,                // A - Nombre completo
-              email,                   // B - Email
-              phone,                   // C - Teléfono
-              contactMethod,           // D - Método de contacto
-              buyingReason,            // E - Razón de compra
-              timeline,                // F - Plazo de compra
-              firstTimeBuyer,          // G - Primera vez
-              budget,                  // H - Presupuesto
-              loanStatus,              // I - Estado del préstamo
-              propertyType,            // J - Tipo de propiedad
-              creditScore,             // K - Puntaje de crédito
-              normalizedScore.toString(), // L - Score normalizado
-              classification,          // M - Clasificación
-              timestamp                // N - Timestamp
-            ]]
-          }
-        });
-        
-        console.log('Respuesta de Google Sheets:', insertResponse.status);
-        console.log('Datos guardados exitosamente en la fila', nextRow);
-      } catch (error) {
-        console.error('Error al insertar datos en Google Sheets:', error.message);
-        console.error('Detalles del error:', error);
-        
-        // En lugar de lanzar un error, respondemos con un mensaje amigable
-        return Response.json({
-          success: false,
-          error: 'Error en Google Sheets',
-          message: `No se pudo guardar los datos: ${error.message}`,
-          redirectUrl: process.env.NEXT_PUBLIC_REDIRECT_URL || 'https://app.gohighlevel.com/v2/preview/vhVyjgV407B2HQnkNtHe?notrack=true'
-        }, { status: 200 }); // Enviamos 200 en lugar de 500 para no mostrar error al usuario
-      }
-
-      // 8. Guardar el ID de submisión en el Set para prevenir duplicados
+      // Registrar el ID de envío para evitar duplicados en la misma instancia
       if (submissionId) {
         processedSubmissionIds.add(submissionId);
-        console.log(`ID de envío ${submissionId} guardado para prevenir envíos duplicados`);
+        console.log(`ID de envío ${submissionId} registrado para prevenir duplicados`);
       }
-
-      // 9. Preparar y retornar respuesta exitosa
+      
+      // 9. Preparar y devolver la respuesta exitosa
       console.log('Preparando URL de redirección...');
       const redirectUrl = process.env.NEXT_PUBLIC_REDIRECT_URL || 'https://app.gohighlevel.com/v2/preview/vhVyjgV407B2HQnkNtHe?notrack=true';
       
@@ -234,33 +232,33 @@ export async function POST(request) {
         message: 'Form submitted successfully',
         redirectUrl: redirectUrl
       });
-    } catch (authError) {
-      console.error('Error al crear autenticación JWT:', authError.message);
+      
+    } catch (sheetError) {
+      console.error('Error al guardar datos en Google Sheets:', sheetError.message);
+      console.error('Detalles completos del error:', sheetError);
+      
       return Response.json({
         success: false,
-        error: 'Error en autenticación',
-        message: `Error al conectar con Google Sheets: ${authError.message}`,
+        error: 'Error en Google Sheets',
+        message: `No se pudo guardar los datos: ${sheetError.message}`,
         redirectUrl: process.env.NEXT_PUBLIC_REDIRECT_URL || 'https://app.gohighlevel.com/v2/preview/vhVyjgV407B2HQnkNtHe?notrack=true'
-      }, { status: 200 });
+      }, { status: 200 }); // Devolvemos 200 para no mostrar error al usuario
     }
+    
   } catch (error) {
-    // Manejar errores de manera más detallada
+    // Manejo general de errores
     console.error('Error en el procesamiento del formulario:', error.message);
     console.error('Stack trace:', error.stack);
     
-    // Proporcionar información detallada en desarrollo, pero limitada en producción
     const isProduction = process.env.NODE_ENV === 'production';
     
-    return Response.json(
-      {
-        success: false,
-        error: 'Failed to submit form',
-        message: error.message,
-        details: isProduction ? 'Error details hidden in production' : error.stack,
-        redirectUrl: process.env.NEXT_PUBLIC_REDIRECT_URL || 'https://app.gohighlevel.com/v2/preview/vhVyjgV407B2HQnkNtHe?notrack=true'
-      },
-      { status: 200 } // Usar 200 en lugar de 500 para evitar alarmar al usuario
-    );
+    return Response.json({
+      success: false,
+      error: 'Failed to submit form',
+      message: error.message,
+      details: isProduction ? 'Error details hidden in production' : error.stack,
+      redirectUrl: process.env.NEXT_PUBLIC_REDIRECT_URL || 'https://app.gohighlevel.com/v2/preview/vhVyjgV407B2HQnkNtHe?notrack=true'
+    }, { status: 200 }); // Usar 200 en lugar de 500 para evitar alarmar al usuario
   } finally {
     console.log('=== FIN DEL PROCESAMIENTO DEL FORMULARIO ===');
   }
