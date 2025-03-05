@@ -34,30 +34,38 @@ export default function Home() {
   }, []);
 
   // Función con debounce para evitar envíos múltiples
+  // Function with debounce to prevent multiple submissions
   const handleSubmitForm = async (formData) => {
     // Si ya estamos enviando, cancelar
+    // If we're already submitting, cancel
     if (isSubmittingRef.current) {
       console.log("Operación de envío ya en progreso, ignorando solicitud adicional");
+      console.log("Submission operation already in progress, ignoring additional request");
       return;
     }
     
     // Limpiar cualquier mensaje de error anterior
+    // Clear any previous error message
     setErrorMessage('');
     
     // Marcar como enviando y mostrar el spinner
+    // Mark as sending and show the spinner
     isSubmittingRef.current = true;
     setIsLoading(true);
     
     // Limpiar cualquier timeout previo
+    // Clear any previous timeout
     if (submitTimeoutRef.current) {
       clearTimeout(submitTimeoutRef.current);
     }
 
     console.log("Enviando datos del formulario:", formData);
+    console.log("Sending form data:", formData);
     
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 segundo timeout
+                                                                     // 15 second timeout
       
       const response = await fetch('/api/submit-lead', {
         method: 'POST',
@@ -72,24 +80,32 @@ export default function Home() {
       
       const data = await response.json();
       console.log("Respuesta del servidor:", data);
+      console.log("Server response:", data);
       
       if (data.success) {
         // Guardar los datos del formulario y la URL de redirección
+        // Save form data and redirect URL
         setFormResponses(formData);
         
         if (data.redirectUrl) {
           console.log("URL de redirección recibida:", data.redirectUrl);
+          console.log("Received redirect URL:", data.redirectUrl);
           setRedirectUrl(data.redirectUrl);
         }
         
         // Mostrar pantalla de agradecimiento
+        // Show thank you screen
         setShowThankYou(true);
       } else {
         // Manejar respuesta de error pero con código 200
+        // Handle error response with 200 code
         console.warn("Error reportado por el servidor:", data.message);
+        console.warn("Error reported by server:", data.message);
         setErrorMessage(data.message || "Hubo un problema al procesar tu información. Por favor, inténtalo de nuevo.");
+        setErrorMessage(data.message || "There was a problem processing your information. Please try again.");
         
         // Permitir intentar de nuevo después de un breve tiempo
+        // Allow retry after a short time
         setTimeout(() => {
           isSubmittingRef.current = false;
           setIsLoading(false);
@@ -97,14 +113,18 @@ export default function Home() {
       }
     } catch (error) {
       console.error("Error al enviar el formulario:", error);
+      console.error("Error sending form:", error);
       
       if (error.name === 'AbortError') {
         setErrorMessage("La solicitud tardó demasiado tiempo. Por favor, verifica tu conexión e inténtalo de nuevo.");
+        setErrorMessage("The request took too long. Please check your connection and try again.");
       } else {
         setErrorMessage(`Hubo un error al enviar el formulario. Por favor, inténtalo nuevamente más tarde. ${error.message}`);
+        setErrorMessage(`There was an error submitting the form. Please try again later. ${error.message}`);
       }
       
       // Permitir intentar nuevamente después de un tiempo
+      // Allow retry after a time
       setTimeout(() => {
         isSubmittingRef.current = false;
         setIsLoading(false);
@@ -234,6 +254,7 @@ export default function Home() {
                       className="mt-2 text-sm text-red-700 underline hover:text-red-800"
                     >
                       Intentar nuevamente
+                      Try again
                     </button>
                   </motion.div>
                 )}

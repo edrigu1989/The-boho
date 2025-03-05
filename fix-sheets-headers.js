@@ -4,19 +4,13 @@ const http = require('http');
 function makeRequest() {
   return new Promise((resolve, reject) => {
     console.log('Iniciando solicitud para corregir encabezados de Google Sheets...');
+    console.log('Starting request to fix Google Sheets headers...');
 
-    // Determina el puerto dinámicamente
-    const determinePort = () => {
-      // Si el script es ejecutado con un argumento, usa ese puerto
-      if (process.argv.length > 2) {
-        return process.argv[2];
-      }
-      // Puerto por defecto
-      return '3000';
-    };
-
-    const port = determinePort();
+    // Obtener el puerto del argumento o usar 3000 por defecto
+    // Get port from argument or use 3000 by default
+    const port = process.argv[2] || 3000;
     console.log(`Usando puerto: ${port}`);
+    console.log(`Using port: ${port}`);
 
     const options = {
       hostname: 'localhost',
@@ -24,57 +18,64 @@ function makeRequest() {
       path: '/api/fix-sheet-headers',
       method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json'
       }
     };
 
     const req = http.request(options, (res) => {
+      console.log(`Código de estado de la respuesta: ${res.statusCode}`);
+      console.log(`Response status code: ${res.statusCode}`);
+
       let data = '';
 
-      // Recopilar datos de respuesta
       res.on('data', (chunk) => {
         data += chunk;
       });
 
-      // Cuando la respuesta termina
       res.on('end', () => {
-        console.log(`Estado de respuesta: ${res.statusCode}`);
-        
         try {
-          const jsonResponse = JSON.parse(data);
-          console.log('Respuesta:', jsonResponse);
-          resolve(jsonResponse);
+          const parsedData = JSON.parse(data);
+          if (res.statusCode === 200) {
+            console.log('✅ Encabezados de Google Sheets corregidos exitosamente:');
+            console.log('✅ Google Sheets headers fixed successfully:');
+            console.log(JSON.stringify(parsedData, null, 2));
+            resolve(parsedData);
+          } else {
+            console.log('❌ Error al corregir encabezados:');
+            console.log('❌ Error fixing headers:');
+            console.log(JSON.stringify(parsedData, null, 2));
+            reject(new Error(`Estado: ${res.statusCode}, Mensaje: ${parsedData.message || 'Error desconocido'}`));
+            reject(new Error(`Status: ${res.statusCode}, Message: ${parsedData.message || 'Unknown error'}`));
+          }
         } catch (error) {
-          console.error('Error al analizar la respuesta JSON:', error.message);
-          console.log('Datos recibidos:', data);
-          reject(error);
+          console.log('❌ Error al analizar la respuesta:');
+          console.log('❌ Error parsing response:');
+          console.log(data);
+          reject(new Error(`Error al analizar la respuesta: ${error.message}`));
+          reject(new Error(`Error parsing response: ${error.message}`));
         }
       });
     });
 
-    // Manejar errores
     req.on('error', (error) => {
-      console.error('Error al realizar la solicitud:', error.message);
+      console.log('Error al realizar la solicitud:');
+      console.log('Error making request:');
+      console.log(`❌ Error en la ejecución: ${error}`);
+      console.log(`❌ Error in execution: ${error}`);
       reject(error);
     });
 
-    // Finalizar la solicitud
     req.end();
   });
 }
 
 // Ejecutar la solicitud
 makeRequest()
-  .then((response) => {
-    if (response.success) {
-      console.log('✅ Encabezados corregidos exitosamente');
-      process.exit(0);
-    } else {
-      console.error('❌ Error al corregir encabezados:', response.message);
-      process.exit(1);
-    }
+  .then(() => {
+    console.log('Solicitud completada exitosamente');
+    console.log('Request completed successfully');
   })
   .catch((error) => {
-    console.error('❌ Error en la ejecución:', error);
+    console.error(error.message);
     process.exit(1);
   }); 

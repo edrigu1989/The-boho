@@ -66,22 +66,17 @@ export async function GET(request) {
       })
     });
     
-    // 4. Definir los encabezados correctos
+    // 4. Definir los encabezados correctos para las 6 preguntas (en inglés)
     const correctHeaders = [
-      'Nombre',
+      'Full Name',
       'Email',
-      'Teléfono',
-      'Método de Contacto',
-      'Razón de Compra',
-      'Plazo de Compra', 
-      'Primera Vez',
-      'Presupuesto',
-      'Estado de Préstamo',
-      'Tipo de Propiedad',
-      'Puntaje de Crédito',
+      'Phone',
+      'Credit Score',
+      'Down Payment Available',
+      'Ready to Invest in 60 Days',
       'Score',
-      'Clasificación',
-      'Fecha'
+      'Classification',
+      'Timestamp'
     ];
     
     // 5. Actualizar los encabezados
@@ -90,7 +85,7 @@ export async function GET(request) {
     try {
       const updateResponse = await sheets.spreadsheets.values.update({
         spreadsheetId: SHEET_ID,
-        range: 'A1:N1',
+        range: 'A1:I1',
         valueInputOption: 'RAW',
         resource: {
           values: [correctHeaders]
@@ -102,7 +97,7 @@ export async function GET(request) {
       // 6. Verificar encabezados actualizados
       const headersResponse = await sheets.spreadsheets.values.get({
         spreadsheetId: SHEET_ID,
-        range: 'A1:N1'
+        range: 'A1:I1'
       });
       
       const currentHeaders = headersResponse.data.values[0];
@@ -117,7 +112,7 @@ export async function GET(request) {
       // 7. Devolver respuesta exitosa
       return Response.json({
         success: true,
-        message: 'Encabezados corregidos correctamente',
+        message: 'Headers updated successfully',
         status: updateResponse.status,
         headers: currentHeaders
       });
@@ -135,9 +130,9 @@ export async function GET(request) {
       
       return Response.json({
         success: false,
-        error: 'Error en Google Sheets',
-        message: `No se pudo actualizar los encabezados: ${sheetError.message}`
-      }, { status: 200 }); // Devolvemos 200 para no mostrar error al usuario
+        error: 'Google Sheets Error',
+        message: `Could not update headers: ${sheetError.message}`
+      }, { status: 200 });
     }
     
   } catch (error) {
@@ -149,8 +144,8 @@ export async function GET(request) {
       success: false,
       error: 'Failed to fix headers',
       message: error.message,
-      details: 'Error en el servidor. Por favor, intente nuevamente más tarde.'
-    }, { status: 200 }); // Usar 200 en lugar de 500 para evitar alarmar al usuario
+      details: 'Server error. Please try again later.'
+    }, { status: 200 });
   } finally {
     console.log('=== FIN DE CORRECCIÓN DE ENCABEZADOS ===');
   }
