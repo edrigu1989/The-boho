@@ -69,12 +69,13 @@ export async function POST(request) {
     
     // Verificar variables de entorno
     if (!SHEET_ID || !CLIENT_EMAIL || !PRIVATE_KEY_RAW) {
-      throw new Error('Faltan variables de entorno para Google Sheets');
+      console.error('Faltan variables de entorno para Google Sheets');
+      console.error('SHEET_ID disponible:', !!SHEET_ID);
+      console.error('CLIENT_EMAIL disponible:', !!CLIENT_EMAIL);
+      console.error('PRIVATE_KEY disponible:', !!PRIVATE_KEY_RAW);
+      
+      throw new Error('Faltan variables de entorno para Google Sheets. Verifique la configuración en Vercel.');
     }
-    
-    console.log('SHEET_ID:', SHEET_ID ? 'Disponible' : 'No disponible');
-    console.log('CLIENT_EMAIL:', CLIENT_EMAIL ? 'Disponible' : 'No disponible');
-    console.log('PRIVATE_KEY:', PRIVATE_KEY_RAW ? 'Disponible' : 'No disponible');
     
     // 3. Procesar la clave privada para manejar correctamente el formato
     // Este es un paso crítico para evitar errores de SSL/decodificación
@@ -145,6 +146,7 @@ export async function POST(request) {
       }
     } catch (error) {
       console.error('Error al verificar duplicados:', error.message);
+      console.error('Detalles del error de verificación:', error);
       // Continuamos con el proceso aunque haya un error en la verificación
     }
     
@@ -235,7 +237,13 @@ export async function POST(request) {
       
     } catch (sheetError) {
       console.error('Error al guardar datos en Google Sheets:', sheetError.message);
-      console.error('Detalles completos del error:', sheetError);
+      console.error('Detalles completos del error:', JSON.stringify(sheetError, null, 2));
+      
+      // Manejo específico para errores de SSL/decodificación
+      const errorMessage = sheetError.message || '';
+      if (errorMessage.includes('DECODER') || errorMessage.includes('SSL')) {
+        console.error('Error de SSL/decodificación detectado. Puede ser un problema con el formato de la clave privada.');
+      }
       
       return Response.json({
         success: false,
@@ -250,13 +258,11 @@ export async function POST(request) {
     console.error('Error en el procesamiento del formulario:', error.message);
     console.error('Stack trace:', error.stack);
     
-    const isProduction = process.env.NODE_ENV === 'production';
-    
     return Response.json({
       success: false,
       error: 'Failed to submit form',
       message: error.message,
-      details: isProduction ? 'Error details hidden in production' : error.stack,
+      details: 'Error en el servidor. Por favor, intente nuevamente más tarde.',
       redirectUrl: process.env.NEXT_PUBLIC_REDIRECT_URL || 'https://app.gohighlevel.com/v2/preview/vhVyjgV407B2HQnkNtHe?notrack=true'
     }, { status: 200 }); // Usar 200 en lugar de 500 para evitar alarmar al usuario
   } finally {

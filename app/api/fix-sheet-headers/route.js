@@ -12,12 +12,13 @@ export async function GET(request) {
     
     // Verificar variables de entorno
     if (!SHEET_ID || !CLIENT_EMAIL || !PRIVATE_KEY_RAW) {
-      throw new Error('Faltan variables de entorno para Google Sheets');
+      console.error('Faltan variables de entorno para Google Sheets');
+      console.error('SHEET_ID disponible:', !!SHEET_ID);
+      console.error('CLIENT_EMAIL disponible:', !!CLIENT_EMAIL);
+      console.error('PRIVATE_KEY disponible:', !!PRIVATE_KEY_RAW);
+      
+      throw new Error('Faltan variables de entorno para Google Sheets. Verifique la configuración en Vercel.');
     }
-    
-    console.log('SHEET_ID:', SHEET_ID ? 'Disponible' : 'No disponible');
-    console.log('CLIENT_EMAIL:', CLIENT_EMAIL ? 'Disponible' : 'No disponible');
-    console.log('PRIVATE_KEY:', PRIVATE_KEY_RAW ? 'Disponible' : 'No disponible');
     
     // 2. Procesar la clave privada para manejar correctamente el formato
     // Este es un paso crítico para evitar errores de SSL/decodificación
@@ -113,7 +114,13 @@ export async function GET(request) {
       
     } catch (sheetError) {
       console.error('Error al actualizar encabezados:', sheetError.message);
-      console.error('Detalles completos del error:', sheetError);
+      console.error('Detalles completos del error:', JSON.stringify(sheetError, null, 2));
+      
+      // Manejo específico para errores de SSL/decodificación
+      const errorMessage = sheetError.message || '';
+      if (errorMessage.includes('DECODER') || errorMessage.includes('SSL')) {
+        console.error('Error de SSL/decodificación detectado. Puede ser un problema con el formato de la clave privada.');
+      }
       
       return Response.json({
         success: false,
@@ -131,7 +138,7 @@ export async function GET(request) {
       success: false,
       error: 'Failed to fix headers',
       message: error.message,
-      details: error.stack,
+      details: 'Error en el servidor. Por favor, intente nuevamente más tarde.'
     }, { status: 200 }); // Usar 200 en lugar de 500 para evitar alarmar al usuario
   } finally {
     console.log('=== FIN DE CORRECCIÓN DE ENCABEZADOS ===');
