@@ -216,6 +216,8 @@ export async function POST(request) {
     console.log('Preparing data for Google Sheets...');
     
     const fullName = formData.fullName?.label || formData.fullName?.value || '';
+    // Usamos las variables email y phone que ya fueron definidas anteriormente
+    // We use the email and phone variables that were already defined before
     const creditScore = formData.creditScore?.label || '';
     const downPayment = formData.downPayment?.label || '';
     const readyToInvest = formData.readyToInvest?.label || '';
