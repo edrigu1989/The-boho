@@ -1,32 +1,24 @@
 import { google } from 'googleapis';
+import { NextResponse } from 'next/server';
 
-export async function GET(request) {
+export async function GET() {
   console.log('=== INICIO DE CORRECCIÓN DE ENCABEZADOS ===');
   console.log('=== START OF HEADERS CORRECTION ===');
   
   try {
-    // 1. Configurar la conexión con Google Sheets
+    // 1. Obtener variables de entorno para Google Sheets
     console.log('Obteniendo variables de entorno para Google Sheets...');
     console.log('Getting environment variables for Google Sheets...');
+    
     const SHEET_ID = process.env.GOOGLE_SHEETS_SHEET_ID;
     const CLIENT_EMAIL = process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
     let PRIVATE_KEY = process.env.GOOGLE_SHEETS_PRIVATE_KEY;
     
-    // Verificar variables de entorno
     if (!SHEET_ID || !CLIENT_EMAIL || !PRIVATE_KEY) {
-      console.error('Faltan variables de entorno para Google Sheets');
-      console.error('Missing environment variables for Google Sheets');
-      console.error('SHEET_ID disponible:', !!SHEET_ID);
-      console.error('SHEET_ID available:', !!SHEET_ID);
-      console.error('CLIENT_EMAIL disponible:', !!CLIENT_EMAIL);
-      console.error('CLIENT_EMAIL available:', !!CLIENT_EMAIL);
-      console.error('PRIVATE_KEY disponible:', !!PRIVATE_KEY);
-      console.error('PRIVATE_KEY available:', !!PRIVATE_KEY);
-      
-      throw new Error('Faltan variables de entorno para Google Sheets. Verifique la configuración en Vercel.');
+      throw new Error('Missing environment variables for Google Sheets');
     }
     
-    // 2. NUEVO ENFOQUE: Procesamiento de la clave privada para resolver el error SSL
+    // 2. Procesar la clave privada
     console.log('Procesando la clave privada con nuevo enfoque...');
     console.log('Processing private key with new approach...');
     
@@ -49,25 +41,17 @@ export async function GET(request) {
         ].join('\n');
       }
       
-      // Verificar si la clave tiene el formato correcto después del procesamiento
-      if (!PRIVATE_KEY.startsWith('-----BEGIN PRIVATE KEY-----')) {
-        console.error('La clave privada no tiene el formato correcto después del procesamiento');
-        console.error('The private key does not have the correct format after processing');
-        console.error('Primeros caracteres:', PRIVATE_KEY.substring(0, 30));
-        console.error('First characters:', PRIVATE_KEY.substring(0, 30));
-      }
-      
       console.log('Clave privada procesada correctamente');
       console.log('Private key processed correctly');
-      console.error('Primera parte de la clave privada procesada:', PRIVATE_KEY.substring(0, 100) + '...');
-      console.error('First part of the processed private key:', PRIVATE_KEY.substring(0, 100) + '...');
+      console.log('Primera parte de la clave privada procesada:', PRIVATE_KEY.substring(0, 100) + '...');
+      console.log('First part of the processed private key:', PRIVATE_KEY.substring(0, 100) + '...');
     } catch (keyError) {
       console.error('Error al procesar la clave privada:', keyError);
       console.error('Error processing private key:', keyError);
       throw new Error('Error al procesar formato de clave privada: ' + keyError.message);
     }
     
-    // 3. Crear autenticación con método alternativo
+    // 3. Crear autenticación con Google
     console.log('Creando cliente para Google Sheets con método alternativo...');
     console.log('Creating Google Sheets client with alternative method...');
     
@@ -86,8 +70,12 @@ export async function GET(request) {
       })
     });
     
-    // 4. Definir los encabezados correctos para las 6 preguntas (en inglés)
-    const correctHeaders = [
+    // 4. Actualizar los encabezados en la hoja de cálculo
+    console.log('Actualizando encabezados en Google Sheets...');
+    console.log('Updating headers in Google Sheets...');
+    
+    // Nuevos encabezados simplificados (solo 9 columnas)
+    const newHeaders = [
       'Full Name',
       'Email',
       'Phone',
@@ -99,46 +87,32 @@ export async function GET(request) {
       'Timestamp'
     ];
     
-    // 5. Actualizar los encabezados
-    console.log('Actualizando encabezados en Google Sheets...');
-    console.log('Updating headers in Google Sheets...');
-    
     try {
-      const updateResponse = await sheets.spreadsheets.values.update({
+      const response = await sheets.spreadsheets.values.update({
         spreadsheetId: SHEET_ID,
         range: 'A1:I1',
         valueInputOption: 'RAW',
         resource: {
-          values: [correctHeaders]
+          values: [newHeaders]
         }
       });
       
-      console.log('Encabezados actualizados correctamente:', updateResponse.status);
-      console.log('Headers updated correctly:', updateResponse.status);
+      console.log('Encabezados actualizados correctamente:', response.status);
+      console.log('Headers updated correctly:', response.status);
       
-      // 6. Verificar encabezados actualizados
-      const headersResponse = await sheets.spreadsheets.values.get({
+      // Obtener encabezados actuales para verificar
+      const headerCheck = await sheets.spreadsheets.values.get({
         spreadsheetId: SHEET_ID,
-        range: 'A1:I1'
+        range: '1:1'
       });
       
-      const currentHeaders = headersResponse.data.values[0];
-      console.log('Encabezados actuales:', currentHeaders);
-      console.log('Current headers:', currentHeaders);
+      console.log('Encabezados actuales:', headerCheck.data.values[0]);
+      console.log('Current headers:', headerCheck.data.values[0]);
       
-      // Verificar si hay duplicados
-      const duplicates = findDuplicates(currentHeaders);
-      if (duplicates.length > 0) {
-        console.warn('Se detectaron encabezados duplicados:', duplicates);
-        console.warn('Duplicate headers detected:', duplicates);
-      }
-      
-      // 7. Devolver respuesta exitosa
-      return Response.json({
-        success: true,
+      return NextResponse.json({ 
+        success: true, 
         message: 'Headers updated successfully',
-        status: updateResponse.status,
-        headers: currentHeaders
+        headers: headerCheck.data.values[0]
       });
       
     } catch (sheetError) {
@@ -146,63 +120,20 @@ export async function GET(request) {
       console.error('Error updating headers:', sheetError.message);
       console.error('Detalles completos del error:', JSON.stringify(sheetError, null, 2));
       console.error('Complete error details:', JSON.stringify(sheetError, null, 2));
-      
-      // Manejo específico para errores de SSL/decodificación
-      const errorMessage = sheetError.message || '';
-      if (errorMessage.includes('DECODER') || errorMessage.includes('SSL')) {
-        console.error('Error de SSL/decodificación detectado. Puede ser un problema con el formato de la clave privada.');
-        console.error('SSL/decoding error detected. It may be a problem with the private key format.');
-        console.error('Primera parte de la clave privada procesada:', PRIVATE_KEY.substring(0, 100) + '...');
-        console.error('First part of the processed private key:', PRIVATE_KEY.substring(0, 100) + '...');
-      }
-      
-      return Response.json({
-        success: false,
-        error: 'Google Sheets Error',
-        message: `Could not update headers: ${sheetError.message}`
-      }, { status: 200 });
+      throw new Error('Error al actualizar encabezados: ' + sheetError.message);
     }
     
   } catch (error) {
-    // Manejo general de errores
     console.error('Error al corregir encabezados:', error.message);
-    console.error('Error fixing headers:', error.message);
-    console.error('Stack trace:', error.stack);
+    console.error('Error correcting headers:', error.message);
     
-    return Response.json({
-      success: false,
-      error: 'Failed to fix headers',
-      message: error.message,
-      details: 'Server error. Please try again later.'
-    }, { status: 200 });
+    return NextResponse.json({ 
+      success: false, 
+      error: error.message 
+    }, { status: 500 });
+    
   } finally {
     console.log('=== FIN DE CORRECCIÓN DE ENCABEZADOS ===');
     console.log('=== END OF HEADERS CORRECTION ===');
   }
-}
-
-// Función para encontrar duplicados en un array
-function findDuplicates(array) {
-  if (!array || !array.length) return [];
-  
-  const seen = {};
-  const duplicates = [];
-  
-  array.forEach((item, index) => {
-    if (!item) return; // Ignorar valores vacíos
-    
-    // Normalizar el texto para comparación (minúsculas, sin espacios extras)
-    const normalizedItem = item.toString().toLowerCase().trim();
-    
-    if (seen[normalizedItem]) {
-      duplicates.push({
-        value: item,
-        indices: [seen[normalizedItem].index, index]
-      });
-    } else {
-      seen[normalizedItem] = { index };
-    }
-  });
-  
-  return duplicates;
 } 

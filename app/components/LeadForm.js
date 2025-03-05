@@ -73,77 +73,7 @@ const formSteps = [
       { value: 'no', label: 'No, not in the next 60 days', points: 0 },
     ],
     validation: (value) => value ? null : 'Please select an option',
-  },
-  // Step 7: Preferred contact method
-  {
-    id: 'contactMethod',
-    question: 'What is your preferred contact method?',
-    type: 'select',
-    options: [
-      { value: '', label: 'Select an option', points: 0 },
-      { value: 'phone', label: 'Phone/WhatsApp', points: 10 },
-      { value: 'email', label: 'Email', points: 7 },
-      { value: 'text', label: 'Text', points: 5 },
-    ],
-    validation: (value) => value ? null : 'Please select your preferred contact method',
-  },
-  // Step 8: Primary buying reason
-  {
-    id: 'buyingReason',
-    question: 'What is your primary reason for buying?',
-    type: 'select',
-    options: [
-      { value: '', label: 'Select an option', points: 0 },
-      { value: 'firstHome', label: 'First Home', points: 15 },
-      { value: 'investment', label: 'Investment', points: 12 },
-      { value: 'secondHome', label: 'Second Home', points: 10 },
-      { value: 'relocation', label: 'Relocation', points: 15 },
-      { value: 'other', label: 'Other', points: 5 },
-    ],
-    validation: (value) => value ? null : 'Please select your reason for buying',
-  },
-  // Step 9: Purchase timeline
-  {
-    id: 'timeline',
-    question: 'What is your purchase timeline?',
-    type: 'select',
-    options: [
-      { value: '', label: 'Select an option', points: 0 },
-      { value: 'immediately', label: 'Immediately', points: 20 },
-      { value: 'within3months', label: 'Within 3 months', points: 15 },
-      { value: '3to6months', label: '3-6 months', points: 10 },
-      { value: 'moreThan6months', label: 'More than 6 months', points: 5 },
-      { value: 'justExploring', label: 'Just exploring', points: 0 },
-    ],
-    validation: (value) => value ? null : 'Please select your purchase timeline',
-  },
-  // Step 10: Property type
-  {
-    id: 'propertyType',
-    question: 'What type of property are you looking for?',
-    type: 'select',
-    options: [
-      { value: '', label: 'Select an option', points: 0 },
-      { value: 'singleFamily', label: 'Single Family Home', points: 10 },
-      { value: 'townhouse', label: 'Townhouse', points: 8 },
-      { value: 'condo', label: 'Condo', points: 6 },
-      { value: 'multifamily', label: 'Multi-Family', points: 12 },
-      { value: 'land', label: 'Land', points: 4 },
-    ],
-    validation: (value) => value ? null : 'Please select a property type',
-  },
-  // Step 11: First-time buyer
-  {
-    id: 'firstTimeBuyer',
-    question: 'Are you a first-time buyer?',
-    type: 'select',
-    options: [
-      { value: '', label: 'Select an option', points: 0 },
-      { value: 'yes', label: 'Yes', points: 5 },
-      { value: 'no', label: 'No', points: 0 },
-    ],
-    validation: (value) => value ? null : 'Please select an option',
-  },
+  }
 ];
 
 export default function LeadForm({ onSubmit, onReset, isLoading, currentStep, onPrevStep }) {
