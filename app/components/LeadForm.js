@@ -29,7 +29,52 @@ const formSteps = [
     placeholder: 'Enter your phone number',
     validation: (value) => value.length > 0 ? null : 'Please enter your phone number',
   },
-  // Step 4: Preferred contact method
+  // Step 4: Credit Score
+  {
+    id: 'creditScore',
+    question: 'What is your credit score range?',
+    type: 'select',
+    options: [
+      { value: '', label: 'Select an option', points: 0 },
+      { value: 'excellent', label: '740 or Higher', points: 25 },
+      { value: 'good', label: '700-739', points: 20 },
+      { value: 'fair', label: '650-699', points: 15 },
+      { value: 'poor', label: '600-649', points: 5 },
+      { value: 'veryPoor', label: 'Below 600', points: 0 },
+      { value: 'unknown', label: 'I don\'t know', points: 0 },
+    ],
+    validation: (value) => value ? null : 'Please select your credit score range',
+  },
+  // Step 5: Down Payment Available
+  {
+    id: 'downPayment',
+    question: 'How much do you have available for a down payment?',
+    type: 'select',
+    options: [
+      { value: '', label: 'Select an option', points: 0 },
+      { value: 'over20percent', label: 'Over 20% of purchase price', points: 40 },
+      { value: '10to20percent', label: '10-20% of purchase price', points: 30 },
+      { value: '5to10percent', label: '5-10% of purchase price', points: 20 },
+      { value: 'under5percent', label: 'Under 5% of purchase price', points: 10 },
+      { value: 'none', label: 'Nothing yet', points: 0 },
+    ],
+    validation: (value) => value ? null : 'Please select your down payment amount',
+  },
+  // Step 6: Ready to Invest
+  {
+    id: 'readyToInvest',
+    question: 'Are you ready to invest in the next 60 days?',
+    type: 'select',
+    options: [
+      { value: '', label: 'Select an option', points: 0 },
+      { value: 'definitely', label: 'Yes, definitely', points: 30 },
+      { value: 'likely', label: 'Likely', points: 20 },
+      { value: 'maybe', label: 'Maybe', points: 10 },
+      { value: 'no', label: 'No, not in the next 60 days', points: 0 },
+    ],
+    validation: (value) => value ? null : 'Please select an option',
+  },
+  // Step 7: Preferred contact method
   {
     id: 'contactMethod',
     question: 'What is your preferred contact method?',
@@ -42,7 +87,7 @@ const formSteps = [
     ],
     validation: (value) => value ? null : 'Please select your preferred contact method',
   },
-  // Step 5: Primary buying reason
+  // Step 8: Primary buying reason
   {
     id: 'buyingReason',
     question: 'What is your primary reason for buying?',
@@ -57,7 +102,7 @@ const formSteps = [
     ],
     validation: (value) => value ? null : 'Please select your reason for buying',
   },
-  // Step 6: Purchase timeline
+  // Step 9: Purchase timeline
   {
     id: 'timeline',
     question: 'What is your purchase timeline?',
@@ -71,48 +116,6 @@ const formSteps = [
       { value: 'justExploring', label: 'Just exploring', points: 0 },
     ],
     validation: (value) => value ? null : 'Please select your purchase timeline',
-  },
-  // Step 7: First-time buyer
-  {
-    id: 'firstTimeBuyer',
-    question: 'Are you a first-time buyer?',
-    type: 'select',
-    options: [
-      { value: '', label: 'Select an option', points: 0 },
-      { value: 'yes', label: 'Yes', points: 5 },
-      { value: 'no', label: 'No', points: 0 },
-    ],
-    validation: (value) => value ? null : 'Please select an option',
-  },
-  // Step 8: Budget
-  {
-    id: 'budget',
-    question: 'What is your budget range?',
-    type: 'select',
-    options: [
-      { value: '', label: 'Select an option', points: 0 },
-      { value: 'under200k', label: 'Under $200,000', points: 5 },
-      { value: '200kTo300k', label: '$200,000 - $300,000', points: 8 },
-      { value: '300kTo500k', label: '$300,000 - $500,000', points: 10 },
-      { value: '500kTo750k', label: '$500,000 - $750,000', points: 12 },
-      { value: '750kTo1m', label: '$750,000 - $1,000,000', points: 15 },
-      { value: 'over1m', label: 'Over $1,000,000', points: 20 },
-    ],
-    validation: (value) => value ? null : 'Please select your budget range',
-  },
-  // Step 9: Loan approval status
-  {
-    id: 'loanStatus',
-    question: 'What is your loan approval status?',
-    type: 'select',
-    options: [
-      { value: '', label: 'Select an option', points: 0 },
-      { value: 'preApproved', label: 'Pre-approved', points: 20 },
-      { value: 'preQualified', label: 'Pre-qualified', points: 10 },
-      { value: 'notStarted', label: 'Not started yet', points: 0 },
-      { value: 'cashBuyer', label: 'I am a cash buyer', points: 25 },
-    ],
-    validation: (value) => value ? null : 'Please select your loan approval status',
   },
   // Step 10: Property type
   {
@@ -129,21 +132,17 @@ const formSteps = [
     ],
     validation: (value) => value ? null : 'Please select a property type',
   },
-  // Step 11: Credit Score (nueva pregunta)
+  // Step 11: First-time buyer
   {
-    id: 'creditScore',
-    question: 'What is your credit score range?',
+    id: 'firstTimeBuyer',
+    question: 'Are you a first-time buyer?',
     type: 'select',
     options: [
       { value: '', label: 'Select an option', points: 0 },
-      { value: 'excellent', label: '740 or Higher', points: 25 },
-      { value: 'good', label: '700-739', points: 20 },
-      { value: 'fair', label: '650-699', points: 15 },
-      { value: 'poor', label: '600-649', points: 5 },
-      { value: 'veryPoor', label: 'Below 600', points: 0 },
-      { value: 'unknown', label: 'I don\'t know', points: 0 },
+      { value: 'yes', label: 'Yes', points: 5 },
+      { value: 'no', label: 'No', points: 0 },
     ],
-    validation: (value) => value ? null : 'Please select your credit score range',
+    validation: (value) => value ? null : 'Please select an option',
   },
 ];
 
@@ -474,7 +473,7 @@ export default function LeadForm({ onSubmit, onReset, isLoading, currentStep, on
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="text-sm text-gray-500 text-right mb-2">
-        Question {currentStep} of 11
+        Question {currentStep} of {formSteps.length}
       </div>
       
       {renderFormField()}
@@ -515,7 +514,7 @@ export default function LeadForm({ onSubmit, onReset, isLoading, currentStep, on
             </>
           ) : (
             <>
-              {currentStep === 11 ? 'Submit' : 'Next'}
+              {currentStep === formSteps.length ? 'Submit' : 'Next'}
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>

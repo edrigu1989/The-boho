@@ -337,10 +337,11 @@ export async function POST(request) {
       success: false,
       error: 'Failed to submit form',
       message: error.message,
-      details: 'Error en el servidor. Por favor, intente nuevamente más tarde.',
+      details: 'Server error. Please try again later.',
       redirectUrl: process.env.NEXT_PUBLIC_REDIRECT_URL || 'https://app.gohighlevel.com/v2/preview/vhVyjgV407B2HQnkNtHe?notrack=true'
     }, { status: 200 }); // Usar 200 en lugar de 500 para evitar alarmar al usuario
   } finally {
     console.log('=== FIN DEL PROCESAMIENTO DEL FORMULARIO ===');
+    console.log('=== END OF FORM PROCESSING ===');
   }
 }
