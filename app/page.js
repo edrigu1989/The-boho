@@ -141,9 +141,12 @@ export default function Home() {
     setFormResponses(updatedResponses);
     console.log('Paso actual:', formStep, 'Datos actualizados:', updatedResponses);
     
-    if (formStep < 11) {
+    // Get formSteps length from LeadForm.js
+    const totalSteps = 6; // Total questions in LeadForm.js
+    
+    if (formStep < totalSteps) {
       setFormStep(prev => prev + 1);
-      setFormProgress((formStep / 11) * 100);
+      setFormProgress((formStep / totalSteps) * 100);
     } else {
       // Submit form when last step is completed
       console.log('Enviando formulario completo en el último paso:', updatedResponses);
@@ -155,9 +158,12 @@ export default function Home() {
     // Limpiar cualquier mensaje de error
     setErrorMessage('');
     
+    // Get formSteps length from LeadForm.js
+    const totalSteps = 6; // Total questions in LeadForm.js
+    
     if (formStep > 1) {
       setFormStep(prev => prev - 1);
-      setFormProgress(((formStep - 2) / 11) * 100);
+      setFormProgress(((formStep - 2) / totalSteps) * 100);
     }
   };
 
@@ -219,7 +225,7 @@ export default function Home() {
                 {/* Progress bar */}
                 <div className="px-6 pt-4">
                   <div className="flex justify-between items-center text-sm text-gray-600 mb-2">
-                    <span>Question {formStep} of 11</span>
+                    <span>Question {formStep} of 6</span>
                     <span>{Math.round(formProgress)}% Complete</span>
                   </div>
                   <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">

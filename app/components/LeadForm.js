@@ -402,10 +402,6 @@ export default function LeadForm({ onSubmit, onReset, isLoading, currentStep, on
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="text-sm text-gray-500 text-right mb-2">
-        Question {currentStep} of {formSteps.length}
-      </div>
-      
       {renderFormField()}
       
       <div className="flex justify-between mt-8">
