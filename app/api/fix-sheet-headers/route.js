@@ -8,53 +8,63 @@ export async function GET(request) {
     console.log('Obteniendo variables de entorno para Google Sheets...');
     const SHEET_ID = process.env.GOOGLE_SHEETS_SHEET_ID;
     const CLIENT_EMAIL = process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
-    const PRIVATE_KEY_RAW = process.env.GOOGLE_SHEETS_PRIVATE_KEY;
+    let PRIVATE_KEY = process.env.GOOGLE_SHEETS_PRIVATE_KEY;
     
     // Verificar variables de entorno
-    if (!SHEET_ID || !CLIENT_EMAIL || !PRIVATE_KEY_RAW) {
+    if (!SHEET_ID || !CLIENT_EMAIL || !PRIVATE_KEY) {
       console.error('Faltan variables de entorno para Google Sheets');
       console.error('SHEET_ID disponible:', !!SHEET_ID);
       console.error('CLIENT_EMAIL disponible:', !!CLIENT_EMAIL);
-      console.error('PRIVATE_KEY disponible:', !!PRIVATE_KEY_RAW);
+      console.error('PRIVATE_KEY disponible:', !!PRIVATE_KEY);
       
       throw new Error('Faltan variables de entorno para Google Sheets. Verifique la configuración en Vercel.');
     }
     
-    // 2. Procesar la clave privada para manejar correctamente el formato
-    // Este es un paso crítico para evitar errores de SSL/decodificación
-    let PRIVATE_KEY = PRIVATE_KEY_RAW;
+    // 2. NUEVO ENFOQUE: Procesamiento de la clave privada para resolver el error SSL
+    console.log('Procesando la clave privada con nuevo enfoque...');
     
-    console.log('Procesando la clave privada...');
-    
-    // Eliminar comillas adicionales si existen
-    if (PRIVATE_KEY.startsWith('"') && PRIVATE_KEY.endsWith('"')) {
-      PRIVATE_KEY = PRIVATE_KEY.slice(1, -1);
+    try {
+      // Eliminar comillas dobles al principio y al final si existen
+      if (PRIVATE_KEY.startsWith('"') && PRIVATE_KEY.endsWith('"')) {
+        PRIVATE_KEY = PRIVATE_KEY.slice(1, -1);
+      }
+      
+      // Reemplazar todas las secuencias \\n con saltos de línea reales
+      PRIVATE_KEY = PRIVATE_KEY.replace(/\\n/g, '\n');
+      
+      // Verificar si la clave no tiene formato PEM y formatearlo
+      if (!PRIVATE_KEY.includes('-----BEGIN PRIVATE KEY-----')) {
+        // Si la clave ya está en formato de una sola línea, formatearlo correctamente
+        PRIVATE_KEY = [
+          '-----BEGIN PRIVATE KEY-----',
+          ...PRIVATE_KEY.match(/.{1,64}/g) || [PRIVATE_KEY],
+          '-----END PRIVATE KEY-----'
+        ].join('\n');
+      }
+      
+      console.log('Clave privada procesada correctamente');
+    } catch (keyError) {
+      console.error('Error al procesar la clave privada:', keyError);
+      throw new Error('Error al procesar formato de clave privada: ' + keyError.message);
     }
     
-    // Reemplazar secuencias de escape con saltos de línea reales
-    PRIVATE_KEY = PRIVATE_KEY.replace(/\\n/g, '\n');
+    // 3. Crear autenticación con método alternativo
+    console.log('Creando cliente para Google Sheets con método alternativo...');
     
-    // Asegurar que la clave tiene el formato PEM correcto
-    if (!PRIVATE_KEY.includes('-----BEGIN PRIVATE KEY-----')) {
-      PRIVATE_KEY = `-----BEGIN PRIVATE KEY-----\n${PRIVATE_KEY}\n-----END PRIVATE KEY-----`;
-    }
+    // Usar objeto de credenciales directamente
+    const credentials = {
+      client_email: CLIENT_EMAIL,
+      private_key: PRIVATE_KEY
+    };
     
-    // 3. Crear la autenticación para Google Sheets usando la API de Google
-    console.log('Creando cliente para Google Sheets...');
-    
-    const auth = new google.auth.GoogleAuth({
-      credentials: {
-        client_email: CLIENT_EMAIL,
-        private_key: PRIVATE_KEY
-      },
-      scopes: ['https://www.googleapis.com/auth/spreadsheets']
+    // Crear cliente con método alternativo
+    const sheets = google.sheets({
+      version: 'v4',
+      auth: new google.auth.GoogleAuth({
+        credentials,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets']
+      })
     });
-    
-    // Obtener un cliente autenticado
-    const authClient = await auth.getClient();
-    
-    // Crear el cliente de Google Sheets
-    const sheets = google.sheets({ version: 'v4', auth: authClient });
     
     // 4. Definir los encabezados correctos
     const correctHeaders = [
@@ -120,6 +130,7 @@ export async function GET(request) {
       const errorMessage = sheetError.message || '';
       if (errorMessage.includes('DECODER') || errorMessage.includes('SSL')) {
         console.error('Error de SSL/decodificación detectado. Puede ser un problema con el formato de la clave privada.');
+        console.error('Primera parte de la clave privada procesada:', PRIVATE_KEY.substring(0, 100) + '...');
       }
       
       return Response.json({
